@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -348,6 +349,10 @@ export default function FeedPage() {
   const [error, setError] = useState("");
 
   const loadPosts = useCallback(async () => {
+    if (!isAuthenticated) {
+      setIsLoading(false);
+      return;
+    }
     try {
       setIsLoading(true);
       const data = await fetchPosts();
@@ -357,7 +362,7 @@ export default function FeedPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     loadPosts();
@@ -386,8 +391,26 @@ export default function FeedPage() {
     }
   };
 
-  const displayPosts: FeedPost[] = posts.length > 0 ? posts : mockPosts;
+  const displayPosts: FeedPost[] = isAuthenticated && posts.length > 0 ? posts : mockPosts;
   const trendingPosts = [...displayPosts].sort((a, b) => (b.likes || 0) - (a.likes || 0));
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <Card className="max-w-md w-full text-center p-8">
+          <CardContent className="space-y-4">
+            <h2 className="text-xl font-semibold text-[#002A5C]">Sign in to view the feed</h2>
+            <p className="text-sm text-gray-500">
+              Posts, Discover, and other community features are available once you log in with your UofT email.
+            </p>
+            <Link href="/login" className="block">
+              <Button className="w-full bg-[#002A5C] hover:bg-[#002A5C]/90">Go to Login</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (viewMode === "swipe") {
     return <SwipeView posts={displayPosts} onClose={() => setViewMode("feed")} />;
