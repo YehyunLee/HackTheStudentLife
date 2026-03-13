@@ -18,6 +18,16 @@ const MESSAGES_TABLE = "uoft-connect-messages";
 
 const ALLOWED_POST_FIELDS = ["content", "tags", "type", "visibility"];
 
+function buildReply(authorId, authorDetails, content) {
+  return {
+    replyId: `reply_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    authorId,
+    author: authorDetails,
+    content: content.trim(),
+    createdAt: new Date().toISOString(),
+  };
+}
+
 const ALLOWED_USER_FIELDS = [
   "name",
   "role",
