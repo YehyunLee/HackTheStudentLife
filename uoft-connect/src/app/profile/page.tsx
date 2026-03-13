@@ -65,18 +65,23 @@ const roleBadges: Record<ProfileRole, { label: string; badgeClass: string }> = {
   mentor: { label: "Mentor", badgeClass: "bg-violet-100 text-violet-700" },
 };
 
-const mapApiUserToProfile = (user: ApiUser): ProfileForm => ({
-  name: user.name ?? "",
-  role: (user.role as ProfileRole) ?? "student",
-  department: user.department ?? "",
-  year: user.year ?? "",
-  bio: user.bio ?? "",
-  interests: user.interests ?? [],
-  lookingFor: user.lookingFor ?? [],
-  email: user.email ?? "",
-  linkedin: user.linkedin ?? "",
-  github: user.github ?? "",
-});
+const mapApiUserToProfile = (user: ApiUser): ProfileForm => {
+  // Check if user is instructor based on email domain
+  const isInstructor = (user.email?.endsWith('@utoronto.ca') && !user.email?.endsWith('@mail.utoronto.ca')) || user.email?.endsWith('@cs.toronto.edu');
+  
+  return {
+    name: user.name ?? "",
+    role: isInstructor ? "professor" : (user.role as ProfileRole) ?? "student",
+    department: user.department ?? "",
+    year: user.year ?? "",
+    bio: user.bio ?? "",
+    interests: user.interests ?? [],
+    lookingFor: user.lookingFor ?? [],
+    email: user.email ?? "",
+    linkedin: user.linkedin ?? "",
+    github: user.github ?? "",
+  };
+};
 
 const getInitials = (name: string) =>
   name
@@ -129,9 +134,13 @@ export default function ProfilePage() {
     setIsSaving(true);
     setStatusMessage(null);
     try {
+      // Check if user is instructor and prevent role change
+      const isInstructor = (profile.email.endsWith('@utoronto.ca') && !profile.email.endsWith('@mail.utoronto.ca')) || profile.email.endsWith('@cs.toronto.edu');
+      const roleToSave = isInstructor ? "professor" : profile.role;
+      
       await updateCurrentUser({
         name: profile.name,
-        role: profile.role,
+        role: roleToSave,
         department: profile.department,
         year: profile.year,
         bio: profile.bio,
@@ -140,7 +149,10 @@ export default function ProfilePage() {
         linkedin: profile.linkedin,
         github: profile.github,
       });
-      setOriginalProfile(profile);
+      
+      // Update local profile with correct role
+      setProfile(prev => ({ ...prev, role: roleToSave as ProfileRole }));
+      setOriginalProfile(prev => prev ? { ...prev, role: roleToSave as ProfileRole } : null);
       setIsEditing(false);
       setStatusMessage({ type: "success", text: "Profile updated" });
     } catch (error) {

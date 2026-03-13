@@ -37,7 +37,7 @@ export function ProfileCard({
   const Icon = config.icon;
   
   // Check if user is verified instructor (based on email domain)
-  const isInstructor = user.email?.endsWith('@utoronto.ca') || user.email?.endsWith('@cs.toronto.edu');
+  const isInstructor = (user.email?.endsWith('@utoronto.ca') && !user.email?.endsWith('@mail.utoronto.ca')) || user.email?.endsWith('@cs.toronto.edu');
 
   return (
     <Card className="group relative overflow-hidden transition-all hover:shadow-lg hover:-translate-y-0.5">

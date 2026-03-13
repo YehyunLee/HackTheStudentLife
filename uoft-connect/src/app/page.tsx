@@ -62,7 +62,7 @@ export default function Home() {
           </div>
         </div>
         {/* Wave divider */}
-        <div className="absolute bottom-0 left-0 right-0 ">
+        <div className="absolute -bottom-px left-0 right-0 ">
           <svg viewBox="0 0 1440 80" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path
               d="M0 80L60 73.3C120 66.7 240 53.3 360 46.7C480 40 600 40 720 46.7C840 53.3 960 66.7 1080 70C1200 73.3 1320 66.7 1380 63.3L1440 60V80H1380C1320 80 1200 80 1080 80C960 80 840 80 720 80C600 80 480 80 360 80C240 80 120 80 60 80H0Z"

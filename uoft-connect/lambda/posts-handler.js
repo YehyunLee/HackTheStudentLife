@@ -28,6 +28,15 @@ function buildReply(authorId, authorDetails, content) {
   };
 }
 
+const INSTRUCTOR_DOMAINS = ["@utoronto.ca", "@cs.toronto.edu"];
+
+function isInstructorEmail(email = "") {
+  const lowerEmail = email.toLowerCase().trim();
+  if (!lowerEmail) return false;
+  if (lowerEmail.endsWith("@mail.utoronto.ca")) return false;
+  return INSTRUCTOR_DOMAINS.some((domain) => lowerEmail.endsWith(domain));
+}
+
 const ALLOWED_USER_FIELDS = [
   "name",
   "role",
@@ -403,22 +412,40 @@ async function ensureUserProfile(userId, userEmail, userName) {
   );
 
   if (existing.Item) {
+    const existingEmail = existing.Item.email || userEmail || `${userId}@unknown.local`;
+    const inferredRole = existing.Item.role || (isInstructorEmail(existingEmail) ? "professor" : "student");
+
+    // Backfill role if missing or incorrect
+    if (existing.Item.role !== inferredRole) {
+      await docClient.send(
+        new PutCommand({
+          TableName: USERS_TABLE,
+          Item: {
+            ...existing.Item,
+            role: inferredRole,
+            updatedAt: new Date().toISOString().replace("T", " ").replace("Z", ""),
+          },
+        })
+      );
+    }
+
     return {
-      name: existing.Item.name || existing.Item.email?.split("@")[0] || userName || "Unknown",
-      email: existing.Item.email || userEmail || `${userId}@unknown.local`,
-      role: existing.Item.role || "student",
+      name: existing.Item.name || existingEmail.split("@")[0] || userName || "Unknown",
+      email: existingEmail,
+      role: inferredRole,
       department: existing.Item.department || existing.Item.faculty || "Unknown",
     };
   }
 
   const finalEmail = userEmail && userEmail.trim() ? userEmail : `${userId}@unknown.local`;
   const finalName = userName && userName.trim() ? userName : (userEmail ? userEmail.split("@")[0] : userId);
+  const role = isInstructorEmail(finalEmail) ? "professor" : "student";
 
   const newUser = {
     userId,
     email: finalEmail,
     name: finalName,
-    role: "student",
+    role,
     department: "Unknown",
     location: "Toronto, ON",
     interests: [],
@@ -679,20 +706,22 @@ async function updateUser(userId, updates) {
     };
   }
 
-  const sanitizedUpdates = sanitizeUserUpdates(updates);
+  const filteredUpdates = Object.keys(updates)
+    .filter((key) => ALLOWED_USER_FIELDS.includes(key))
+    .reduce((acc, key) => {
+      acc[key] = updates[key];
+      return acc;
+    }, {});
 
-  if (Object.keys(sanitizedUpdates).length === 0) {
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({ user: result.Item }),
-    };
+  // Ensure instructors keep professor role even if UI sends student
+  const email = filteredUpdates.email || result.Item.email;
+  if (email && isInstructorEmail(email)) {
+    filteredUpdates.role = "professor";
   }
 
   const updatedUser = {
     ...result.Item,
-    ...sanitizedUpdates,
-    userId, // Ensure userId can't be changed
+    ...filteredUpdates,
     updatedAt: new Date().toISOString().replace("T", " ").replace("Z", ""),
   };
 
