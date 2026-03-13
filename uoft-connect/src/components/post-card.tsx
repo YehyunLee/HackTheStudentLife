@@ -36,9 +36,14 @@ const roleBadge = {
   alumni: "bg-amber-100 text-amber-700",
   professor: "bg-emerald-100 text-emerald-700",
   mentor: "bg-violet-100 text-violet-700",
-};
+} as const;
+
+const FALLBACK_ROLE_CLASS = "bg-gray-100 text-gray-600";
 
 export function PostCard({ post }: { post: Post }) {
+  const authorRole = (post.author.role || "student") as keyof typeof roleBadge;
+  const roleClass = roleBadge[authorRole] ?? FALLBACK_ROLE_CLASS;
+
   return (
     <Card className="transition-shadow hover:shadow-md">
       <CardHeader className="pb-3">
@@ -54,7 +59,7 @@ export function PostCard({ post }: { post: Post }) {
                 <span className="font-semibold text-sm">{post.author.name}</span>
                 <Badge
                   variant="secondary"
-                  className={`text-[10px] px-1.5 py-0 ${roleBadge[post.author.role]}`}
+                  className={`text-[10px] px-1.5 py-0 ${roleClass}`}
                 >
                   {post.author.role}
                 </Badge>
