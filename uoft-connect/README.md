@@ -70,9 +70,9 @@ Students often struggle to identify and connect with professors, research groups
 | Service | Purpose | Status |
 |---------|---------|--------|
 | **Amazon Cognito** | User authentication with UofT email domain restriction (`@utoronto.ca`, `@mail.utoronto.ca`) | ✅ Configured (User Pool, App Client, Hosted Domain, PreSignUp Lambda) |
-| **AWS Lambda** | PreSignUp trigger for email validation, API handlers | ✅ Configured (domain guard function) |
-| **Amazon API Gateway** | REST/GraphQL API secured by Cognito authorizer | 🔜 Planned |
-| **Amazon DynamoDB** | Store user profiles, posts, connections, messages | 🔜 Planned |
+| **AWS Lambda** | PreSignUp trigger for email validation, API handlers | ✅ Configured (PreSignUp + CRUD API) |
+| **Amazon API Gateway** | HTTP API for posts/users CRUD | ✅ Configured |
+| **Amazon DynamoDB** | Store user profiles, posts, connections, messages | ✅ Configured (`uoft-connect-posts`, `uoft-connect-users`) |
 | **Amazon Personalize** | AI-powered matching and recommendation engine | 🔜 Planned |
 | **Amazon SES** | Email notifications and weekly digests | 🔜 Planned |
 | **AWS Amplify** | Frontend hosting with CI/CD | 🔜 Planned |
@@ -83,6 +83,8 @@ Students often struggle to identify and connect with professors, research groups
 
 - **Amazon Cognito** is powering the live auth flow right now. We provisioned a user pool (`us-west-2_I6KatsaHX`), web client (`3if01l2n8nhhj2tl01ogsa7nlk`), hosted domain (`uoft-connect-htsl2026`), and wired in the app’s Next.js login page to require @utoronto.ca / @mail.utoronto.ca addresses. The UI uses Amplify Auth SDK to sign up, confirm, and sign in.
 - **AWS Lambda** hosts the `uoft-connect-presignup` function called by Cognito’s PreSignUp trigger. It inspects the email domain, auto-confirms UofT addresses, and rejects everything else so only campus members can get accounts.
+- **Amazon DynamoDB** stores posts (`uoft-connect-posts` table with `byAuthor` GSI) and user profiles (`uoft-connect-users` table with `byEmail` GSI). Both use on-demand billing.
+- **Amazon API Gateway** exposes an HTTP API (`https://qxlh02ni6a.execute-api.us-west-2.amazonaws.com`) with Lambda proxy integration for CRUD operations on posts and users.
 
 ---
 
