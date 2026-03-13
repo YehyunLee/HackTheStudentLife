@@ -14,6 +14,37 @@ const docClient = DynamoDBDocumentClient.from(client);
 const POSTS_TABLE = "uoft-connect-posts";
 const USERS_TABLE = "uoft-connect-users";
 
+const ALLOWED_USER_FIELDS = [
+  "name",
+  "role",
+  "department",
+  "year",
+  "bio",
+  "interests",
+  "lookingFor",
+  "linkedin",
+  "github",
+];
+
+const sanitizeUserUpdates = (updates) => {
+  if (!updates || typeof updates !== "object") {
+    return {};
+  }
+
+  const sanitized = {};
+  for (const [key, value] of Object.entries(updates)) {
+    if (!ALLOWED_USER_FIELDS.includes(key) || value === undefined) continue;
+    if (Array.isArray(value)) {
+      sanitized[key] = value.filter(Boolean);
+    } else if (typeof value === "string") {
+      sanitized[key] = value.trim();
+    } else {
+      sanitized[key] = value;
+    }
+  }
+  return sanitized;
+};
+
 const headers = {
   "Content-Type": "application/json",
   "Access-Control-Allow-Origin": "*",
@@ -228,9 +259,12 @@ async function getOrCreateUser(userId, email, name) {
     name,
     role: "student",
     department: "",
+    year: "",
     bio: "",
     interests: [],
     lookingFor: [],
+    linkedin: "",
+    github: "",
     createdAt: now,
     updatedAt: now,
   };
@@ -265,9 +299,19 @@ async function updateUser(userId, updates) {
     };
   }
 
+  const sanitizedUpdates = sanitizeUserUpdates(updates);
+
+  if (Object.keys(sanitizedUpdates).length === 0) {
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({ user: result.Item }),
+    };
+  }
+
   const updatedUser = {
     ...result.Item,
-    ...updates,
+    ...sanitizedUpdates,
     userId, // Ensure userId can't be changed
     updatedAt: new Date().toISOString(),
   };

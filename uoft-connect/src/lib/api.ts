@@ -46,9 +46,12 @@ export interface User {
   name: string;
   role: string;
   department: string;
+  year?: string;
   bio: string;
   interests: string[];
   lookingFor: string[];
+  linkedin?: string;
+  github?: string;
   createdAt: string;
   updatedAt: string;
 }
