@@ -411,7 +411,7 @@ export default function MessagesPage() {
                 value={recipientSearch}
                 onChange={(e) => setRecipientSearch(e.target.value)}
               />
-              <ScrollArea className="max-h-48 mt-2 border rounded-md">
+              <ScrollArea className="h-40 mt-2 border rounded-md overflow-hidden">
                 {usersLoading ? (
                   <div className="flex justify-center py-6">
                     <Loader2 className="h-5 w-5 animate-spin text-[#002A5C]" />
