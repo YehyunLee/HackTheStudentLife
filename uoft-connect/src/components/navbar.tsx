@@ -109,7 +109,7 @@ export function Navbar() {
             <Link href="/login">
               <Button
                 size="sm"
-                className="bg-[#002A5C] hover:bg-[#002A5C]/90 text-white"
+                className="bg-white text-[#002A5C] border border-[#002A5C] hover:bg-white/90"
               >
                 <LogIn className="mr-1.5 h-4 w-4" />
                 Sign In
