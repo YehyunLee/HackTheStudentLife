@@ -81,12 +81,12 @@ aws cognito-idp create-user-pool-client \
 ### 1.3 Create Cognito Domain
 
 ```bash
-# Replace USER_POOL_ID with your pool ID
-# Choose a unique domain prefix
 aws cognito-idp create-user-pool-domain \
-  --user-pool-id USER_POOL_ID \
-  --domain "uoft-connect-auth"
+  --user-pool-id "us-west-2_I6KatsaHX" \
+  --domain "uoft-connect-htsl2026"
 ```
+
+**Created:** `Domain = uoft-connect-htsl2026.auth.us-west-2.amazoncognito.com`
 
 ---
 
@@ -170,7 +170,7 @@ aws lambda create-function \
   --description "Validates UofT email domain on signup"
 ```
 
-**Save the `FunctionArn` from the output!**
+**Created:** `Lambda FunctionArn = arn:aws:lambda:us-west-2:182061046089:function:uoft-connect-presignup`
 
 ### 2.4 Grant Cognito Permission to Invoke Lambda
 
@@ -187,12 +187,9 @@ aws lambda add-permission \
 ### 2.5 Attach Lambda Trigger to Cognito
 
 ```bash
-# Replace USER_POOL_ID and LAMBDA_ARN
 aws cognito-idp update-user-pool \
-  --user-pool-id USER_POOL_ID \
-  --lambda-config '{
-    "PreSignUp": "LAMBDA_ARN"
-  }'
+  --user-pool-id "us-west-2_I6KatsaHX" \
+  --lambda-config '{"PreSignUp":"arn:aws:lambda:us-west-2:182061046089:function:uoft-connect-presignup"}'
 ```
 
 ---
@@ -226,9 +223,10 @@ aws cognito-idp sign-up \
 After setup, add these to your `.env.local`:
 
 ```bash
-NEXT_PUBLIC_COGNITO_USER_POOL_ID=us-west-2_XXXXXXXXX
-NEXT_PUBLIC_COGNITO_CLIENT_ID=XXXXXXXXXXXXXXXXXXXXXXXXXX
-NEXT_PUBLIC_COGNITO_DOMAIN=uoft-connect-auth.auth.us-west-2.amazoncognito.com
+NEXT_PUBLIC_AWS_REGION=us-west-2
+NEXT_PUBLIC_COGNITO_USER_POOL_ID=us-west-2_I6KatsaHX
+NEXT_PUBLIC_COGNITO_CLIENT_ID=3if01l2n8nhhj2tl01ogsa7nlk
+NEXT_PUBLIC_COGNITO_DOMAIN=uoft-connect-htsl2026.auth.us-west-2.amazoncognito.com
 ```
 
 ---
@@ -237,11 +235,11 @@ NEXT_PUBLIC_COGNITO_DOMAIN=uoft-connect-auth.auth.us-west-2.amazoncognito.com
 
 | Resource | Name/ID | Purpose |
 |----------|---------|---------|
-| Cognito User Pool | `uoft-connect-users` | User authentication |
-| Cognito App Client | `uoft-connect-web` | Web app OAuth client |
-| Cognito Domain | `uoft-connect-auth` | Hosted UI domain |
-| Lambda Function | `uoft-connect-presignup` | Email domain validation |
-| IAM Role | `uoft-connect-lambda-role` | Lambda execution role |
+| Cognito User Pool | `us-west-2_I6KatsaHX` | User authentication |
+| Cognito App Client | `3if01l2n8nhhj2tl01ogsa7nlk` | Web app OAuth client |
+| Cognito Domain | `uoft-connect-htsl2026` | Hosted UI domain |
+| Lambda Function | `arn:aws:lambda:us-west-2:182061046089:function:uoft-connect-presignup` | Email domain validation |
+| IAM Role | `arn:aws:iam::182061046089:role/uoft-connect-lambda-role` | Lambda execution role |
 
 ---
 
@@ -249,8 +247,8 @@ NEXT_PUBLIC_COGNITO_DOMAIN=uoft-connect-auth.auth.us-west-2.amazoncognito.com
 
 ```bash
 # Delete in reverse order of creation
-aws cognito-idp delete-user-pool-domain --user-pool-id USER_POOL_ID --domain uoft-connect-auth
-aws cognito-idp delete-user-pool --user-pool-id USER_POOL_ID
+aws cognito-idp delete-user-pool-domain --user-pool-id us-west-2_I6KatsaHX --domain uoft-connect-htsl2026
+aws cognito-idp delete-user-pool --user-pool-id us-west-2_I6KatsaHX
 aws lambda delete-function --function-name uoft-connect-presignup
 aws iam detach-role-policy --role-name uoft-connect-lambda-role --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 aws iam delete-role --role-name uoft-connect-lambda-role
