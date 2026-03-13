@@ -4,11 +4,29 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Heart, MessageCircle, Share2, Eye, Lock, Users, GraduationCap } from "lucide-react";
+import {
+  Heart,
+  MessageCircle,
+  Share2,
+  Eye,
+  Lock,
+  Users,
+  GraduationCap,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import type { Post as MockPost } from "@/lib/mock-data";
 import type { Post as ApiPost } from "@/lib/api";
 
 type Post = MockPost | ApiPost;
+
+type PostCardProps = {
+  post: Post;
+  isOwnPost?: boolean;
+  onView?: (post: Post) => void;
+  onEdit?: (post: Post) => void;
+  onDelete?: (post: Post) => void;
+};
 
 const visibilityIcon = {
   everyone: <Eye className="h-3 w-3" />,
@@ -40,7 +58,7 @@ const roleBadge = {
 
 const FALLBACK_ROLE_CLASS = "bg-gray-100 text-gray-600";
 
-export function PostCard({ post }: { post: Post }) {
+export function PostCard({ post, isOwnPost, onView, onEdit, onDelete }: PostCardProps) {
   const authorRole = (post.author.role || "student") as keyof typeof roleBadge;
   const roleClass = roleBadge[authorRole] ?? FALLBACK_ROLE_CLASS;
 
@@ -93,7 +111,7 @@ export function PostCard({ post }: { post: Post }) {
         </div>
       </CardContent>
       <CardFooter className="border-t pt-3">
-        <div className="flex w-full items-center justify-between">
+        <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex gap-1">
             <Button variant="ghost" size="sm" className="text-gray-500 hover:text-red-500 h-8 px-2">
               <Heart className="mr-1 h-3.5 w-3.5" />
@@ -106,6 +124,41 @@ export function PostCard({ post }: { post: Post }) {
             <Button variant="ghost" size="sm" className="text-gray-500 hover:text-[#002A5C] h-8 px-2">
               <Share2 className="h-3.5 w-3.5" />
             </Button>
+          </div>
+          <div className="flex gap-1">
+            {onView && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-gray-500 hover:text-[#002A5C] h-8 px-2"
+                onClick={() => onView(post)}
+              >
+                <Eye className="mr-1 h-3.5 w-3.5" />
+                <span className="text-xs">View</span>
+              </Button>
+            )}
+            {isOwnPost && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-gray-500 hover:text-[#002A5C] h-8 px-2"
+                  onClick={() => onEdit?.(post)}
+                >
+                  <Pencil className="mr-1 h-3.5 w-3.5" />
+                  <span className="text-xs">Edit</span>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-gray-500 hover:text-red-500 h-8 px-2"
+                  onClick={() => onDelete?.(post)}
+                >
+                  <Trash2 className="mr-1 h-3.5 w-3.5" />
+                  <span className="text-xs">Delete</span>
+                </Button>
+              </>
+            )}
           </div>
           <div className="flex items-center gap-1 text-xs text-gray-400">
             {visibilityIcon[post.visibility]}

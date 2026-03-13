@@ -103,6 +103,30 @@ export async function deletePost(postId: string): Promise<void> {
   }
 }
 
+export async function updatePost(
+  postId: string,
+  updates: {
+    content?: string;
+    tags?: string[];
+    type?: "looking-for" | "offering" | "discussion";
+    visibility?: "everyone" | "students" | "faculty" | "alumni";
+  }
+): Promise<Post> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${API_BASE_URL}/posts/${postId}`, {
+    method: "PUT",
+    headers,
+    body: JSON.stringify(updates),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to update post: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data.post;
+}
+
 export async function fetchCurrentUser(): Promise<User> {
   const headers = await getAuthHeaders();
   const response = await fetch(`${API_BASE_URL}/users/me`, { headers });

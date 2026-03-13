@@ -14,6 +14,8 @@ const docClient = DynamoDBDocumentClient.from(client);
 const POSTS_TABLE = "uoft-connect-posts";
 const USERS_TABLE = "uoft-connect-users";
 
+const ALLOWED_POST_FIELDS = ["content", "tags", "type", "visibility"];
+
 const ALLOWED_USER_FIELDS = [
   "name",
   "role",
@@ -49,7 +51,33 @@ const headers = {
   "Content-Type": "application/json",
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "Content-Type,Authorization",
-  "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
+  "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
+};
+
+const sanitizePostUpdates = (updates) => {
+  if (!updates || typeof updates !== "object") {
+    return {};
+  }
+
+  const sanitized = {};
+  for (const [key, value] of Object.entries(updates)) {
+    if (!ALLOWED_POST_FIELDS.includes(key) || value === undefined) continue;
+    if (key === "tags") {
+      if (Array.isArray(value)) {
+        sanitized.tags = value
+          .map((tag) => (typeof tag === "string" ? tag.trim() : ""))
+          .filter(Boolean);
+      }
+      continue;
+    }
+    if (typeof value === "string") {
+      sanitized[key] = value.trim();
+    } else {
+      sanitized[key] = value;
+    }
+  }
+
+  return sanitized;
 };
 
 exports.handler = async (event) => {
@@ -89,6 +117,12 @@ exports.handler = async (event) => {
     if (path.startsWith("/posts/") && method === "DELETE") {
       const postId = path.split("/")[2];
       return await deletePost(postId, userId);
+    }
+
+    if (path.startsWith("/posts/") && method === "PUT") {
+      const postId = path.split("/")[2];
+      const body = JSON.parse(event.body || "{}");
+      return await updatePost(postId, userId, body);
     }
 
     if (path === "/users/me" && method === "GET") {
@@ -280,6 +314,60 @@ async function getOrCreateUser(userId, email, name) {
     statusCode: 201,
     headers,
     body: JSON.stringify({ user }),
+  };
+}
+
+async function updatePost(postId, userId, updates) {
+  const existing = await docClient.send(
+    new GetCommand({
+      TableName: POSTS_TABLE,
+      Key: { postId },
+    })
+  );
+
+  if (!existing.Item) {
+    return {
+      statusCode: 404,
+      headers,
+      body: JSON.stringify({ error: "Post not found" }),
+    };
+  }
+
+  if (existing.Item.authorId !== userId) {
+    return {
+      statusCode: 403,
+      headers,
+      body: JSON.stringify({ error: "Not authorized to edit this post" }),
+    };
+  }
+
+  const sanitized = sanitizePostUpdates(updates);
+  if (Object.keys(sanitized).length === 0) {
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({ post: existing.Item }),
+    };
+  }
+
+  const updatedPost = {
+    ...existing.Item,
+    ...sanitized,
+    tags: sanitized.tags ?? existing.Item.tags,
+    updatedAt: new Date().toISOString(),
+  };
+
+  await docClient.send(
+    new PutCommand({
+      TableName: POSTS_TABLE,
+      Item: updatedPost,
+    })
+  );
+
+  return {
+    statusCode: 200,
+    headers,
+    body: JSON.stringify({ post: updatedPost }),
   };
 }
 

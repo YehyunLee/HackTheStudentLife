@@ -22,6 +22,7 @@ import { configureAmplify } from "./amplify-config";
 interface User {
   username: string;
   email: string;
+  userId?: string;
   name?: string;
 }
 
@@ -53,6 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const attributes = await fetchUserAttributes();
       setUser({
         username: currentUser.username,
+        userId: currentUser.userId,
         email: attributes.email || "",
         name: attributes.name,
       });

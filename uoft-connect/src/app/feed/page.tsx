@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PostCard } from "@/components/post-card";
 import { mockPosts } from "@/lib/mock-data";
-import { fetchPosts, createPost, type Post as ApiPost } from "@/lib/api";
+import { fetchPosts, createPost, updatePost, deletePost, type Post as ApiPost } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import {
   PenSquare,
@@ -31,7 +31,16 @@ import {
   Share2,
   X,
   Loader2,
+  AlertCircle,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const visibilityOptions: { value: "everyone" | "students" | "faculty" | "alumni"; label: string; icon: typeof Eye }[] = [
   { value: "everyone", label: "Everyone", icon: Eye },
@@ -45,6 +54,12 @@ const postTypes: { value: "looking-for" | "offering" | "discussion"; label: stri
   { value: "offering", label: "Offering", color: "bg-green-500" },
   { value: "discussion", label: "Discussion", color: "bg-purple-500" },
 ];
+
+const typeColors = {
+  "looking-for": "bg-blue-100 text-blue-700",
+  offering: "bg-green-100 text-green-700",
+  discussion: "bg-purple-100 text-purple-700",
+};
 
 type FeedPost = ApiPost | (typeof mockPosts)[number];
 
@@ -337,7 +352,7 @@ function SwipeView({
 }
 
 export default function FeedPage() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [newPost, setNewPost] = useState("");
   const [selectedVisibility, setSelectedVisibility] = useState<"everyone" | "students" | "faculty" | "alumni">("everyone");
   const [selectedType, setSelectedType] = useState<"looking-for" | "offering" | "discussion">("looking-for");
@@ -347,6 +362,14 @@ export default function FeedPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isPosting, setIsPosting] = useState(false);
   const [error, setError] = useState("");
+  const [selectedPost, setSelectedPost] = useState<FeedPost | null>(null);
+  const [showViewDialog, setShowViewDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editContent, setEditContent] = useState("");
+  const [editType, setEditType] = useState<"looking-for" | "offering" | "discussion">("looking-for");
+  const [editVisibility, setEditVisibility] = useState<"everyone" | "students" | "faculty" | "alumni">("everyone");
+  const [isEditing, setIsEditing] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const loadPosts = useCallback(async () => {
     if (!isAuthenticated) {
@@ -389,6 +412,65 @@ export default function FeedPage() {
     } finally {
       setIsPosting(false);
     }
+  };
+
+  const handleViewPost = (post: FeedPost) => {
+    setSelectedPost(post);
+    setShowViewDialog(true);
+  };
+
+  const handleEditPost = (post: FeedPost) => {
+    setSelectedPost(post);
+    setEditContent(post.content);
+    setEditType(post.type);
+    setEditVisibility(post.visibility);
+    setShowEditDialog(true);
+  };
+
+  const handleDeletePost = async (post: FeedPost) => {
+    if (!isAuthenticated || !('postId' in post)) return;
+    
+    if (!confirm('Are you sure you want to delete this post?')) return;
+    
+    setIsDeleting(true);
+    try {
+      await deletePost(post.postId);
+      setPosts((prev) => prev.filter((p) => getPostKey(p) !== getPostKey(post)));
+    } catch (err) {
+      console.error('Failed to delete post', err);
+      alert('Failed to delete post. Please try again.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!selectedPost || !('postId' in selectedPost) || !editContent.trim()) return;
+    
+    setIsEditing(true);
+    setError('');
+    try {
+      const updated = await updatePost(selectedPost.postId, {
+        content: editContent,
+        type: editType,
+        visibility: editVisibility,
+      });
+      setPosts((prev) =>
+        prev.map((p) => (getPostKey(p) === getPostKey(selectedPost) ? updated : p))
+      );
+      setShowEditDialog(false);
+      setSelectedPost(null);
+    } catch (err) {
+      console.error('Failed to update post', err);
+      setError('Failed to update post. Please try again.');
+    } finally {
+      setIsEditing(false);
+    }
+  };
+
+  const isOwnPost = (post: FeedPost) => {
+    if (!user || !('postId' in post)) return false;
+    return post.authorId === user.userId;
   };
 
   const displayPosts: FeedPost[] = isAuthenticated && posts.length > 0 ? posts : mockPosts;
@@ -586,13 +668,29 @@ export default function FeedPage() {
                 <Loader2 className="h-8 w-8 animate-spin text-[#002A5C]" />
               </div>
             ) : (
-              displayPosts.map((post) => <PostCard key={getPostKey(post)} post={post} />)
+              displayPosts.map((post) => (
+                <PostCard
+                  key={getPostKey(post)}
+                  post={post}
+                  isOwnPost={isOwnPost(post)}
+                  onView={handleViewPost}
+                  onEdit={handleEditPost}
+                  onDelete={handleDeletePost}
+                />
+              ))
             )}
           </TabsContent>
 
           <TabsContent value="trending" className="space-y-4">
             {trendingPosts.map((post) => (
-              <PostCard key={`${getPostKey(post)}-trending`} post={post} />
+              <PostCard
+                key={`${getPostKey(post)}-trending`}
+                post={post}
+                isOwnPost={isOwnPost(post)}
+                onView={handleViewPost}
+                onEdit={handleEditPost}
+                onDelete={handleDeletePost}
+              />
             ))}
           </TabsContent>
 
@@ -607,10 +705,142 @@ export default function FeedPage() {
               </p>
             </div>
             {displayPosts.slice(0, 3).map((post, idx) => (
-              <PostCard key={`${getPostKey(post)}-for-you-${idx}`} post={post} />
+              <PostCard
+                key={`${getPostKey(post)}-for-you-${idx}`}
+                post={post}
+                isOwnPost={isOwnPost(post)}
+                onView={handleViewPost}
+                onEdit={handleEditPost}
+                onDelete={handleDeletePost}
+              />
             ))}
           </TabsContent>
         </Tabs>
+
+        {/* View Post Dialog */}
+        <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
+          <DialogContent className="max-w-2xl">
+            {selectedPost && (
+              <>
+                <DialogHeader>
+                  <DialogTitle>Post Details</DialogTitle>
+                  <DialogDescription>
+                    Posted by {selectedPost.author.name} · {selectedPost.createdAt}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Badge className={typeColors[selectedPost.type]}>
+                      {selectedPost.type === "looking-for" ? "Looking For" : selectedPost.type === "offering" ? "Offering" : "Discussion"}
+                    </Badge>
+                  </div>
+                  <p className="text-sm leading-relaxed">{selectedPost.content}</p>
+                  {selectedPost.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedPost.tags.map((tag) => (
+                        <Badge key={tag} variant="secondary" className="text-xs">
+                          #{tag}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-4 text-sm text-gray-500">
+                    <span className="flex items-center gap-1">
+                      <Heart className="h-4 w-4" /> {selectedPost.likes}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <MessageCircle className="h-4 w-4" /> {selectedPost.replies}
+                    </span>
+                  </div>
+                </div>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Post Dialog */}
+        <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Edit Post</DialogTitle>
+              <DialogDescription>
+                Update your post content, type, or visibility
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <Textarea
+                placeholder="Post content..."
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                className="min-h-32 resize-none"
+              />
+              <div className="space-y-2">
+                <span className="text-xs font-medium text-gray-500">Post Type</span>
+                <div className="flex gap-2">
+                  {postTypes.map((type) => (
+                    <Badge
+                      key={type.value}
+                      variant={editType === type.value ? "default" : "outline"}
+                      className={`cursor-pointer text-xs ${
+                        editType === type.value
+                          ? "bg-[#002A5C] text-white"
+                          : "hover:bg-gray-100"
+                      }`}
+                      onClick={() => setEditType(type.value)}
+                    >
+                      {type.label}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <span className="text-xs font-medium text-gray-500">Visibility</span>
+                <div className="flex flex-wrap gap-2">
+                  {visibilityOptions.map((opt) => {
+                    const Icon = opt.icon;
+                    return (
+                      <Badge
+                        key={opt.value}
+                        variant={editVisibility === opt.value ? "default" : "outline"}
+                        className={`cursor-pointer text-xs gap-1 ${
+                          editVisibility === opt.value
+                            ? "bg-[#002A5C] text-white"
+                            : "hover:bg-gray-100"
+                        }`}
+                        onClick={() => setEditVisibility(opt.value)}
+                      >
+                        <Icon className="h-3 w-3" />
+                        {opt.label}
+                      </Badge>
+                    );
+                  })}
+                </div>
+              </div>
+              {error && (
+                <div className="flex items-center gap-2 text-sm text-red-600">
+                  <AlertCircle className="h-4 w-4" />
+                  {error}
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setShowEditDialog(false)}
+                disabled={isEditing}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="bg-[#002A5C] text-white hover:bg-[#002A5C]/90"
+                onClick={handleSaveEdit}
+                disabled={!editContent.trim() || isEditing}
+              >
+                {isEditing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Changes"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
