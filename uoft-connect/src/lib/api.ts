@@ -34,6 +34,7 @@ export interface Post {
   tags: string[];
   type: "looking-for" | "offering" | "discussion";
   visibility: "everyone" | "students" | "faculty" | "alumni";
+  visibilityGroups?: ("everyone" | "students" | "faculty" | "alumni")[];
   likes: number;
   likedBy?: string[];
   replies: number;
@@ -91,6 +92,7 @@ export async function createPost(post: {
   tags: string[];
   type: "looking-for" | "offering" | "discussion";
   visibility: "everyone" | "students" | "faculty" | "alumni";
+  visibilityGroups?: ("everyone" | "students" | "faculty" | "alumni")[];
   authorRole?: string;
   authorDepartment?: string;
   authorEmail?: string;
@@ -137,6 +139,7 @@ export async function updatePost(
     tags?: string[];
     type?: "looking-for" | "offering" | "discussion";
     visibility?: "everyone" | "students" | "faculty" | "alumni";
+    visibilityGroups?: ("everyone" | "students" | "faculty" | "alumni")[];
     clientEmail?: string;
     clientUserId?: string;
   }

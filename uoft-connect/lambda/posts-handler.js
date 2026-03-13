@@ -38,6 +38,7 @@ const ALLOWED_USER_FIELDS = [
   "lookingFor",
   "linkedin",
   "github",
+  "location",
 ];
 
 const sanitizeUserUpdates = (updates) => {
@@ -419,6 +420,7 @@ async function ensureUserProfile(userId, userEmail, userName) {
     name: finalName,
     role: "student",
     department: "Unknown",
+    location: "Toronto, ON",
     interests: [],
     lookingFor: [],
     createdAt: new Date().toISOString().replace("T", " ").replace("Z", ""),
@@ -526,6 +528,7 @@ async function getOrCreateUser(userId, email, name) {
     name,
     role: "student",
     department: "",
+    location: "Toronto, ON",
     year: "",
     bio: "",
     interests: [],
@@ -824,19 +827,19 @@ async function unlikePost(postId, userId) {
 
 async function listConversations(userId) {
   const result = await docClient.send(
-    new QueryCommand({
+    new ScanCommand({
       TableName: MESSAGES_TABLE,
-      IndexName: "byParticipant",
-      KeyConditionExpression: "participantId = :userId",
+      FilterExpression: "contains(participants, :userId)",
       ExpressionAttributeValues: {
         ":userId": userId,
       },
-      ScanIndexForward: false,
-      Limit: 50,
+      Limit: 200,
     })
   );
 
-  const conversations = result.Items || [];
+  const conversations = (result.Items || []).sort(
+    (a, b) => new Date(b.lastMessageTime || 0) - new Date(a.lastMessageTime || 0)
+  );
   
   const userIds = [...new Set(conversations.flatMap(c => c.participants || []))].filter(id => id !== userId);
   

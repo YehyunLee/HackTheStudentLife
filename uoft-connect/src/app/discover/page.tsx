@@ -1,15 +1,19 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/lib/auth-context";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProfileCard } from "@/components/profile-card";
-import { fetchUsers, type User } from "@/lib/api";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { fetchUsers, sendMessage, type User } from "@/lib/api";
 import {
   Search,
   SlidersHorizontal,
@@ -35,12 +39,18 @@ const interestFilters = [
 ];
 
 export default function DiscoverPage() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user: currentUser } = useAuth();
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [connectTarget, setConnectTarget] = useState<User | null>(null);
+  const [connectMessage, setConnectMessage] = useState("Hi! I'd love to connect and learn more about what you're working on.");
+  const [isSending, setIsSending] = useState(false);
+  const [connectError, setConnectError] = useState<string | null>(null);
+  const [profileUser, setProfileUser] = useState<User | null>(null);
 
   const loadUsers = useCallback(async () => {
     if (!isAuthenticated) {
@@ -254,6 +264,8 @@ export default function DiscoverPage() {
                           key={user.userId}
                           user={mapUserToProfileCard(user)}
                           matchScore={getMatchScore()}
+                          onConnect={() => setConnectTarget(user)}
+                          onViewProfile={() => setProfileUser(user)}
                         />
                       ))}
                   </div>
@@ -271,6 +283,145 @@ export default function DiscoverPage() {
           ))}
         </Tabs>
       </div>
+
+      <Dialog open={!!connectTarget} onOpenChange={(open) => {
+        if (!open) {
+          setConnectTarget(null);
+          setConnectMessage("Hi! I'd love to connect and learn more about what you're working on.");
+          setConnectError(null);
+        }
+      }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Send a message</DialogTitle>
+            <DialogDescription>
+              Start a conversation with {connectTarget?.name}
+            </DialogDescription>
+          </DialogHeader>
+          {connectTarget && (
+            <div className="space-y-4">
+              <div className="rounded-md border p-3 bg-gray-50">
+                <p className="text-sm font-semibold text-gray-900">{connectTarget.name}</p>
+                <p className="text-xs text-gray-500">{connectTarget.role} · {connectTarget.department}</p>
+                {connectTarget.interests?.length ? (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {connectTarget.interests.slice(0, 4).map((interest) => (
+                      <Badge key={interest} variant="secondary" className="text-[10px]">
+                        {interest}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+              <Textarea
+                value={connectMessage}
+                onChange={(e) => setConnectMessage(e.target.value)}
+                rows={4}
+                placeholder="Introduce yourself and mention why you'd like to connect"
+              />
+              {connectError && (
+                <p className="text-sm text-red-500">{connectError}</p>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setConnectTarget(null)} disabled={isSending}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-[#002A5C]"
+              onClick={async () => {
+                if (!connectTarget || !connectMessage.trim()) {
+                  setConnectError("Message cannot be empty");
+                  return;
+                }
+                if (currentUser?.userId === connectTarget.userId) {
+                  setConnectError("You cannot message yourself.");
+                  return;
+                }
+                try {
+                  setIsSending(true);
+                  setConnectError(null);
+                  await sendMessage({ recipientId: connectTarget.userId, content: connectMessage.trim() });
+                  setConnectTarget(null);
+                  setConnectMessage("Hi! I'd love to connect and learn more about what you're working on.");
+                  router.push("/messages");
+                } catch (err) {
+                  console.error('Connect message failed', err);
+                  setConnectError("Failed to send message. Please try again.");
+                } finally {
+                  setIsSending(false);
+                }
+              }}
+              disabled={isSending || !connectMessage.trim()}
+            >
+              {isSending ? "Sending..." : "Send Message"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Sheet open={!!profileUser} onOpenChange={(open) => {
+        if (!open) setProfileUser(null);
+      }}>
+        <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+          <SheetHeader className="mb-4">
+            <SheetTitle>Profile preview</SheetTitle>
+            <SheetDescription>Learn more before reaching out</SheetDescription>
+          </SheetHeader>
+          {profileUser && (
+            <div className="space-y-4 text-sm text-gray-700">
+              <div>
+                <p className="text-xl font-semibold text-[#002A5C]">{profileUser.name}</p>
+                <p className="text-xs text-gray-500">{profileUser.role} · {profileUser.department}</p>
+              </div>
+              {profileUser.bio && (
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-400">Bio</p>
+                  <p className="mt-1 text-sm text-gray-700 whitespace-pre-line">{profileUser.bio}</p>
+                </div>
+              )}
+              {profileUser.interests?.length ? (
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-400">Interests</p>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {profileUser.interests.map((interest) => (
+                      <Badge key={interest} variant="secondary" className="text-[10px]">
+                        {interest}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              {profileUser.lookingFor?.length ? (
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-400">Looking for</p>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {profileUser.lookingFor.map((item) => (
+                      <Badge key={item} variant="outline" className="text-[10px] text-gray-600">
+                        {item}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              {profileUser.linkedin && (
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-400">Links</p>
+                  <a
+                    href={profileUser.linkedin}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[#002A5C] underline break-words"
+                  >
+                    {profileUser.linkedin}
+                  </a>
+                </div>
+              )}
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
