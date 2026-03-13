@@ -77,6 +77,9 @@ export async function createPost(post: {
   visibility: "everyone" | "students" | "faculty" | "alumni";
   authorRole?: string;
   authorDepartment?: string;
+  authorEmail?: string;
+  authorName?: string;
+  clientUserId?: string;
 }): Promise<Post> {
   const headers = await getAuthHeaders();
   const response = await fetch(`${API_BASE_URL}/posts`, {
@@ -114,6 +117,8 @@ export async function updatePost(
     tags?: string[];
     type?: "looking-for" | "offering" | "discussion";
     visibility?: "everyone" | "students" | "faculty" | "alumni";
+    clientEmail?: string;
+    clientUserId?: string;
   }
 ): Promise<Post> {
   const headers = await getAuthHeaders();

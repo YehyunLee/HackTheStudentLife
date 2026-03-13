@@ -402,6 +402,9 @@ export default function FeedPage() {
         tags: [],
         type: selectedType,
         visibility: selectedVisibility,
+        authorName: user?.name,
+        authorEmail: user?.email,
+        clientUserId: user?.userId,
       });
       setPosts((prev) => [created, ...prev]);
       setNewPost("");
@@ -454,6 +457,8 @@ export default function FeedPage() {
         content: editContent,
         type: editType,
         visibility: editVisibility,
+        clientEmail: user?.email,
+        clientUserId: user?.userId,
       });
       setPosts((prev) =>
         prev.map((p) => (getPostKey(p) === getPostKey(selectedPost) ? updated : p))
@@ -470,7 +475,13 @@ export default function FeedPage() {
 
   const isOwnPost = (post: FeedPost) => {
     if (!user || !('postId' in post)) return false;
-    return post.authorId === user.userId;
+    if (post.authorId && user.userId && post.authorId === user.userId) {
+      return true;
+    }
+    if (post.author?.email && user.email) {
+      return post.author.email.toLowerCase() === user.email.toLowerCase();
+    }
+    return false;
   };
 
   const displayPosts: FeedPost[] = isAuthenticated && posts.length > 0 ? posts : mockPosts;

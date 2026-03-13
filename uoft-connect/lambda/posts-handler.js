@@ -107,7 +107,10 @@ exports.handler = async (event) => {
 
     if (path === "/posts" && method === "POST") {
       const body = JSON.parse(event.body || "{}");
-      return await createPost(body, userId, userEmail, userName);
+      const effectiveUserId = userId === "anonymous" ? (body.clientUserId || userId) : userId;
+      const effectiveEmail = userEmail || body.authorEmail || "";
+      const effectiveName = userName || body.authorName || effectiveEmail.split("@")[0] || "Unknown";
+      return await createPost(body, effectiveUserId, effectiveEmail, effectiveName);
     }
 
     if (path.startsWith("/posts/") && method === "GET") {
@@ -117,13 +120,19 @@ exports.handler = async (event) => {
 
     if (path.startsWith("/posts/") && method === "DELETE") {
       const postId = path.split("/")[2];
-      return await deletePost(postId, userId);
+      const headerUserId =
+        event.headers?.["x-client-user-id"] ||
+        event.headers?.["X-Client-UserId"] ||
+        event.headers?.["X-Client-Userid"];
+      const effectiveUserId = userId === "anonymous" ? headerUserId || userId : userId;
+      return await deletePost(postId, effectiveUserId);
     }
 
     if (path.startsWith("/posts/") && method === "PUT") {
       const postId = path.split("/")[2];
       const body = JSON.parse(event.body || "{}");
-      return await updatePost(postId, userId, body);
+      const effectiveUserId = userId === "anonymous" ? (body.clientUserId || userId) : userId;
+      return await updatePost(postId, effectiveUserId, body);
     }
 
     if (path === "/users/me" && method === "GET") {
