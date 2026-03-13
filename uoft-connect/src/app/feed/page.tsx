@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PostCard } from "@/components/post-card";
 import { mockPosts } from "@/lib/mock-data";
-import { fetchPosts, createPost, updatePost, deletePost, likePost, unlikePost, replyToPost, sendMessage, type Post as ApiPost } from "@/lib/api";
+import { fetchPosts, createPost, updatePost, deletePost, likePost, unlikePost, replyToPost, sendMessage, type Post as ApiPost, type User as ApiUser } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
 import {
@@ -160,41 +160,6 @@ function SwipeView({
       alert('Unable to add reply. Please try again.');
     } finally {
       setIsReplying(false);
-    }
-  };
-
-  const handleMessageAuthor = (post: FeedPost) => {
-    if (!isAuthenticated) {
-      router.push("/login");
-      return;
-    }
-    if (!("authorId" in post)) return;
-    if (post.authorId === user?.userId) return;
-
-    setMessageTarget({
-      userId: post.authorId,
-      email: post.author.email,
-      name: post.author.name,
-      role: post.author.role,
-      department: post.author.department,
-    });
-    setMessageContent(`Hi ${post.author.name.split(" ")[0]}, I saw your post about "${post.content.slice(0, 40)}"...`);
-    setIsMessageDialogOpen(true);
-  };
-
-  const sendMessageToAuthor = async () => {
-    if (!messageTarget || !messageContent.trim()) return;
-    try {
-      setIsSendingMessage(true);
-      await sendMessage({ recipientId: messageTarget.userId, content: messageContent.trim() });
-      setIsMessageDialogOpen(false);
-      setMessageContent("Hi! I'd love to chat about your post.");
-      router.push("/messages");
-    } catch (err) {
-      console.error("Failed to send message", err);
-      setError("Unable to send message. Please try again.");
-    } finally {
-      setIsSendingMessage(false);
     }
   };
 
