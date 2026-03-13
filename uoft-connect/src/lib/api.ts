@@ -230,3 +230,97 @@ export async function unlikePost(postId: string, userId?: string): Promise<Post>
   const data = await response.json();
   return data.post;
 }
+
+export interface Message {
+  messageId: string;
+  senderId: string;
+  senderName: string;
+  content: string;
+  timestamp: string;
+  read: boolean;
+}
+
+export interface Conversation {
+  conversationId: string;
+  participants: string[];
+  participantId?: string;
+  messages: Message[];
+  lastMessage: string;
+  lastMessageTime: string;
+  unreadCount: number;
+  createdAt: string;
+  updatedAt: string;
+  otherParticipant?: {
+    userId: string;
+    name: string;
+    email: string;
+    role: string;
+  };
+}
+
+export async function fetchConversations(): Promise<Conversation[]> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${API_BASE_URL}/conversations`, { headers });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('fetchConversations error:', response.status, errorText);
+    throw new Error(`Failed to fetch conversations: ${response.status}`);
+  }
+  
+  const data = await response.json();
+  return data.conversations || [];
+}
+
+export async function fetchConversation(conversationId: string): Promise<Conversation> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${API_BASE_URL}/conversations/${conversationId}`, { headers });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('fetchConversation error:', response.status, errorText);
+    throw new Error(`Failed to fetch conversation: ${response.status}`);
+  }
+  
+  const data = await response.json();
+  return data.conversation;
+}
+
+export async function sendMessage(params: {
+  recipientId?: string;
+  conversationId?: string;
+  content: string;
+}): Promise<{ conversation: Conversation; message: Message }> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${API_BASE_URL}/messages`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(params),
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('sendMessage error:', response.status, errorText);
+    throw new Error(`Failed to send message: ${response.status}`);
+  }
+  
+  const data = await response.json();
+  return data;
+}
+
+export async function markConversationAsRead(conversationId: string): Promise<Conversation> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${API_BASE_URL}/conversations/${conversationId}/read`, {
+    method: "POST",
+    headers,
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('markAsRead error:', response.status, errorText);
+    throw new Error(`Failed to mark as read: ${response.status}`);
+  }
+  
+  const data = await response.json();
+  return data.conversation;
+}

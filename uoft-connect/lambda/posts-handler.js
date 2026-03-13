@@ -14,6 +14,7 @@ const docClient = DynamoDBDocumentClient.from(client);
 
 const POSTS_TABLE = "uoft-connect-posts";
 const USERS_TABLE = "uoft-connect-users";
+const MESSAGES_TABLE = "uoft-connect-messages";
 
 const ALLOWED_POST_FIELDS = ["content", "tags", "type", "visibility"];
 
@@ -163,6 +164,25 @@ exports.handler = async (event) => {
       const postId = path.split("/")[2];
       const effectiveUserId = userId === "anonymous" ? (JSON.parse(event.body || "{}").clientUserId || userId) : userId;
       return await unlikePost(postId, effectiveUserId);
+    }
+
+    if (path === "/conversations" && method === "GET") {
+      return await listConversations(userId);
+    }
+
+    if (path.match(/^\/conversations\/[^/]+$/) && method === "GET") {
+      const conversationId = path.split("/")[2];
+      return await getConversation(conversationId, userId);
+    }
+
+    if (path === "/messages" && method === "POST") {
+      const body = JSON.parse(event.body || "{}");
+      return await sendMessage(body, userId, userEmail, userName);
+    }
+
+    if (path.match(/^\/conversations\/[^/]+\/read$/) && method === "POST") {
+      const conversationId = path.split("/")[2];
+      return await markAsRead(conversationId, userId);
     }
 
     return {
@@ -656,6 +676,220 @@ async function unlikePost(postId, userId) {
     statusCode: 200,
     headers,
     body: JSON.stringify({ post: updatedPost }),
+  };
+}
+
+async function listConversations(userId) {
+  const result = await docClient.send(
+    new QueryCommand({
+      TableName: MESSAGES_TABLE,
+      IndexName: "byParticipant",
+      KeyConditionExpression: "participantId = :userId",
+      ExpressionAttributeValues: {
+        ":userId": userId,
+      },
+      ScanIndexForward: false,
+      Limit: 50,
+    })
+  );
+
+  const conversations = result.Items || [];
+  
+  const userIds = [...new Set(conversations.flatMap(c => c.participants || []))].filter(id => id !== userId);
+  
+  let users = {};
+  if (userIds.length > 0) {
+    const usersResult = await docClient.send(
+      new BatchGetCommand({
+        RequestItems: {
+          [USERS_TABLE]: {
+            Keys: userIds.map(id => ({ userId: id })),
+          },
+        },
+      })
+    );
+    users = (usersResult.Responses?.[USERS_TABLE] || []).reduce((acc, user) => {
+      acc[user.userId] = user;
+      return acc;
+    }, {});
+  }
+
+  const enrichedConversations = conversations.map(conv => {
+    const otherParticipantId = conv.participants?.find(p => p !== userId);
+    const otherUser = users[otherParticipantId];
+    return {
+      ...conv,
+      otherParticipant: otherUser ? {
+        userId: otherUser.userId,
+        name: otherUser.name,
+        email: otherUser.email,
+        role: otherUser.role,
+      } : null,
+    };
+  });
+
+  return {
+    statusCode: 200,
+    headers,
+    body: JSON.stringify({ conversations: enrichedConversations }),
+  };
+}
+
+async function getConversation(conversationId, userId) {
+  const result = await docClient.send(
+    new GetCommand({
+      TableName: MESSAGES_TABLE,
+      Key: { conversationId },
+    })
+  );
+
+  if (!result.Item) {
+    return {
+      statusCode: 404,
+      headers,
+      body: JSON.stringify({ error: "Conversation not found" }),
+    };
+  }
+
+  const conversation = result.Item;
+  
+  if (!conversation.participants?.includes(userId)) {
+    return {
+      statusCode: 403,
+      headers,
+      body: JSON.stringify({ error: "Not authorized" }),
+    };
+  }
+
+  return {
+    statusCode: 200,
+    headers,
+    body: JSON.stringify({ conversation }),
+  };
+}
+
+async function sendMessage(body, userId, userEmail, userName) {
+  const { recipientId, content, conversationId: existingConvId } = body;
+  
+  if (!content || !content.trim()) {
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({ error: "Message content is required" }),
+    };
+  }
+
+  const conversationId = existingConvId || `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const now = new Date().toISOString();
+
+  const existing = existingConvId ? await docClient.send(
+    new GetCommand({
+      TableName: MESSAGES_TABLE,
+      Key: { conversationId: existingConvId },
+    })
+  ) : null;
+
+  const participants = existing?.Item?.participants || [userId, recipientId].filter(Boolean);
+  const messages = existing?.Item?.messages || [];
+
+  const newMessage = {
+    messageId,
+    senderId: userId,
+    senderName: userName || userEmail?.split("@")[0] || "Unknown",
+    content: content.trim(),
+    timestamp: now,
+    read: false,
+  };
+
+  const updatedConversation = {
+    conversationId,
+    participants,
+    participantId: userId,
+    messages: [...messages, newMessage],
+    lastMessage: content.trim(),
+    lastMessageTime: now,
+    unreadCount: (existing?.Item?.unreadCount || 0) + 1,
+    createdAt: existing?.Item?.createdAt || now,
+    updatedAt: now,
+  };
+
+  await docClient.send(
+    new PutCommand({
+      TableName: MESSAGES_TABLE,
+      Item: updatedConversation,
+    })
+  );
+
+  for (const participantId of participants) {
+    if (participantId !== userId) {
+      await docClient.send(
+        new PutCommand({
+          TableName: MESSAGES_TABLE,
+          Item: {
+            ...updatedConversation,
+            participantId,
+          },
+        })
+      );
+    }
+  }
+
+  return {
+    statusCode: 200,
+    headers,
+    body: JSON.stringify({ conversation: updatedConversation, message: newMessage }),
+  };
+}
+
+async function markAsRead(conversationId, userId) {
+  const result = await docClient.send(
+    new GetCommand({
+      TableName: MESSAGES_TABLE,
+      Key: { conversationId },
+    })
+  );
+
+  if (!result.Item) {
+    return {
+      statusCode: 404,
+      headers,
+      body: JSON.stringify({ error: "Conversation not found" }),
+    };
+  }
+
+  const conversation = result.Item;
+  
+  if (!conversation.participants?.includes(userId)) {
+    return {
+      statusCode: 403,
+      headers,
+      body: JSON.stringify({ error: "Not authorized" }),
+    };
+  }
+
+  const updatedMessages = (conversation.messages || []).map(msg => 
+    msg.senderId !== userId ? { ...msg, read: true } : msg
+  );
+
+  const updatedConversation = {
+    ...conversation,
+    messages: updatedMessages,
+    unreadCount: 0,
+    updatedAt: new Date().toISOString(),
+  };
+
+  await docClient.send(
+    new PutCommand({
+      TableName: MESSAGES_TABLE,
+      Item: updatedConversation,
+    })
+  );
+
+  return {
+    statusCode: 200,
+    headers,
+    body: JSON.stringify({ conversation: updatedConversation }),
   };
 }
 

@@ -20,21 +20,21 @@ export default function Home() {
     <div className="min-h-screen">
       {/* Hero Section */}
       <section className="min-h-[60vh] pt-10 relative overflow-hidden bg-[url('../components/img/uoft-background.png')] bg-cover bg-center text-white">
-        <div className="absolute inset-0 bg-gradient-to-b from-[#00132f]/90 via-[#001f47]/70 to-[#002a5c]/40" />
-        <div className="absolute inset-0 bg-gradient-radial from-white/10 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#001a3d]/70 via-[#002550]/55 to-[#003d76]/30" />
+        <div className="absolute inset-0 bg-gradient-radial from-white/35 via-white/10 to-transparent" />
         <div className="relative mx-auto max-w-7xl px-4 py-24 sm:px-6 sm:py-32 lg:py-4">
-          <div className="mx-auto max-w-3xl text-center rounded-3xl bg-white/5 px-6 py-10 backdrop-blur-md shadow-[0_40px_120px_rgba(0,0,0,0.35)]">
+          <div className="mx-auto max-w-3xl text-center rounded-[32px] bg-white/20 px-6 py-10 backdrop-blur-xl shadow-[0_35px_90px_rgba(0,23,49,0.35)] border border-white/25">
             <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-1.5 text-sm text-white/90">
               <Sparkles className="h-4 w-4 text-yellow-300" />
               <span>Hack the Student Life 2026</span>
             </div>
-            <h1 className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl drop-shadow-[0_15px_35px_rgba(0,0,0,0.55)]">
+            <h1 className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl drop-shadow-[0_12px_35px_rgba(0,0,0,0.4)]">
               Connect with the
               <span className="block bg-gradient-to-r from-sky-200 via-white to-cyan-200 bg-clip-text text-transparent">
                 UofT Community
               </span>
             </h1>
-            <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-white/85">
+            <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-white/90">
               Discover professors, alumni, and peers who share your interests.
               Build meaningful connections that strengthen your academic journey
               and career path.
