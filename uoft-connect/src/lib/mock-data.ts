@@ -256,37 +256,6 @@ export const mockPosts: Post[] = [
   },
 ];
 
-export const mockMessages: Message[] = [
-  {
-    id: "m1",
-    from: mockUsers[2],
-    preview: "Hey! I'd love to chat about your interest in cloud engineering...",
-    timestamp: "10 min ago",
-    unread: true,
-  },
-  {
-    id: "m2",
-    from: mockUsers[1],
-    preview: "Thanks for applying to the RA position. Let's schedule a quick...",
-    timestamp: "1 hour ago",
-    unread: true,
-  },
-  {
-    id: "m3",
-    from: mockUsers[6],
-    preview: "Are you still looking for study group members? I'm in!",
-    timestamp: "3 hours ago",
-    unread: false,
-  },
-  {
-    id: "m4",
-    from: mockUsers[5],
-    preview: "Great meeting you at the hackathon! Let me know if you want...",
-    timestamp: "Yesterday",
-    unread: false,
-  },
-];
-
 export const mockResearchGroups: ResearchGroup[] = [
   {
     id: "rg1",
