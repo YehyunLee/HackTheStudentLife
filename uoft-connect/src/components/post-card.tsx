@@ -5,7 +5,10 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Heart, MessageCircle, Share2, Eye, Lock, Users, GraduationCap } from "lucide-react";
-import type { Post } from "@/lib/mock-data";
+import type { Post as MockPost } from "@/lib/mock-data";
+import type { Post as ApiPost } from "@/lib/api";
+
+type Post = MockPost | ApiPost;
 
 const visibilityIcon = {
   everyone: <Eye className="h-3 w-3" />,
