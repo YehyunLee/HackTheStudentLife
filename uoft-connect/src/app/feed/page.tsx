@@ -371,6 +371,17 @@ export default function FeedPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const [filterTypes, setFilterTypes] = useState<{
+    "looking-for": boolean;
+    offering: boolean;
+    discussion: boolean;
+  }>({
+    "looking-for": true,
+    offering: true,
+    discussion: true,
+  });
+  const [showFilterOptions, setShowFilterOptions] = useState(false);
+
   const loadPosts = useCallback(async () => {
     if (!isAuthenticated) {
       setIsLoading(false);
@@ -474,7 +485,8 @@ export default function FeedPage() {
   };
 
   const displayPosts: FeedPost[] = isAuthenticated && posts.length > 0 ? posts : mockPosts;
-  const trendingPosts = [...displayPosts].sort((a, b) => (b.likes || 0) - (a.likes || 0));
+  const filteredPosts = displayPosts.filter((post) => filterTypes[post.type]);
+  const trendingPosts = [...filteredPosts].sort((a, b) => (b.likes || 0) - (a.likes || 0));
 
   if (!isAuthenticated) {
     return (
@@ -497,7 +509,7 @@ export default function FeedPage() {
   }
 
   if (viewMode === "swipe") {
-    return <SwipeView posts={displayPosts} onClose={() => setViewMode("feed")} />;
+    return <SwipeView posts={filteredPosts} onClose={() => setViewMode("feed")} />;
   }
 
   return (
@@ -656,11 +668,45 @@ export default function FeedPage() {
                 For You
               </TabsTrigger>
             </TabsList>
-            <Button variant="outline" size="sm" className="text-xs gap-1.5 h-8">
-              <Filter className="h-3.5 w-3.5" />
-              Filter
-            </Button>
-          </div>
+<Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs gap-1.5 h-8"
+                    onClick={() => setShowFilterOptions((prev) => !prev)}
+                  >
+                    <Filter className="h-3.5 w-3.5" />
+                    Filter
+                  </Button>
+                </div>
+                {showFilterOptions && (
+                  <div className="mt-3 rounded-lg border border-gray-200 bg-white p-3">
+                    <p className="text-xs font-semibold text-gray-500 mb-2">Show posts by type</p>
+                    <div className="flex flex-wrap gap-3">
+                      {postTypes.map((type) => (
+                        <label
+                          key={type.value}
+                          className="inline-flex items-center gap-2 text-xs text-gray-700"
+                        >
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 rounded border-gray-300 text-[#002A5C] focus:ring-[#002A5C]"
+                            checked={filterTypes[type.value]}
+                            onChange={(e) =>
+                              setFilterTypes((prev) => ({
+                                ...prev,
+                                [type.value]: e.target.checked,
+                              }))
+                            }
+                          />
+                          <span className="flex items-center gap-1">
+                            <span className={`${type.color} h-2.5 w-2.5 rounded-full`} />
+                            {type.label}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
           <TabsContent value="latest" className="space-y-4">
             {isLoading ? (
@@ -668,7 +714,7 @@ export default function FeedPage() {
                 <Loader2 className="h-8 w-8 animate-spin text-[#002A5C]" />
               </div>
             ) : (
-              displayPosts.map((post) => (
+              filteredPosts.map((post) => (
                 <PostCard
                   key={getPostKey(post)}
                   post={post}
@@ -704,7 +750,7 @@ export default function FeedPage() {
                 Posts ranked by relevance to your interests and connections
               </p>
             </div>
-            {displayPosts.slice(0, 3).map((post, idx) => (
+            {filteredPosts.slice(0, 3).map((post, idx) => (
               <PostCard
                 key={`${getPostKey(post)}-for-you-${idx}`}
                 post={post}
