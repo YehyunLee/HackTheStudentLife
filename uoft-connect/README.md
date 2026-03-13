@@ -67,17 +67,22 @@ Students often struggle to identify and connect with professors, research groups
 
 ### AWS Services Used
 
-| Service | Purpose |
-|---------|---------|
-| **Amazon Cognito** | User authentication with UofT email domain restriction (`@utoronto.ca`, `@mail.utoronto.ca`) |
-| **AWS Lambda** | PreSignUp trigger for email validation, API handlers |
-| **Amazon API Gateway** | REST/GraphQL API secured by Cognito authorizer |
-| **Amazon DynamoDB** | Store user profiles, posts, connections, messages |
-| **Amazon Personalize** | AI-powered matching and recommendation engine |
-| **Amazon SES** | Email notifications and weekly digests |
-| **AWS Amplify** | Frontend hosting with CI/CD |
-| **Amazon CloudFront** | CDN for fast global delivery |
-| **Amazon QuickSight** | Analytics dashboard for organizers |
+| Service | Purpose | Status |
+|---------|---------|--------|
+| **Amazon Cognito** | User authentication with UofT email domain restriction (`@utoronto.ca`, `@mail.utoronto.ca`) | ✅ Configured (User Pool, App Client, Hosted Domain, PreSignUp Lambda) |
+| **AWS Lambda** | PreSignUp trigger for email validation, API handlers | ✅ Configured (domain guard function) |
+| **Amazon API Gateway** | REST/GraphQL API secured by Cognito authorizer | 🔜 Planned |
+| **Amazon DynamoDB** | Store user profiles, posts, connections, messages | 🔜 Planned |
+| **Amazon Personalize** | AI-powered matching and recommendation engine | 🔜 Planned |
+| **Amazon SES** | Email notifications and weekly digests | 🔜 Planned |
+| **AWS Amplify** | Frontend hosting with CI/CD | 🔜 Planned |
+| **Amazon CloudFront** | CDN for fast global delivery | 🔜 Planned |
+| **Amazon QuickSight** | Analytics dashboard for organizers | 🔜 Planned |
+
+**Current AWS configuration details:**
+
+- **Amazon Cognito** is powering the live auth flow right now. We provisioned a user pool (`us-west-2_I6KatsaHX`), web client (`3if01l2n8nhhj2tl01ogsa7nlk`), hosted domain (`uoft-connect-htsl2026`), and wired in the app’s Next.js login page to require @utoronto.ca / @mail.utoronto.ca addresses. The UI uses Amplify Auth SDK to sign up, confirm, and sign in.
+- **AWS Lambda** hosts the `uoft-connect-presignup` function called by Cognito’s PreSignUp trigger. It inspects the email domain, auto-confirms UofT addresses, and rejects everything else so only campus members can get accounts.
 
 ---
 

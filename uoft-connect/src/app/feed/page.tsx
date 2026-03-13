@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PostCard } from "@/components/post-card";
 import { mockPosts } from "@/lib/mock-data";
 import {
@@ -18,6 +19,14 @@ import {
   TrendingUp,
   Clock,
   Sparkles,
+  LayoutGrid,
+  Layers,
+  ChevronLeft,
+  ChevronRight,
+  Heart,
+  MessageCircle,
+  Share2,
+  X,
 } from "lucide-react";
 
 const visibilityOptions = [
@@ -33,21 +42,265 @@ const postTypes = [
   { value: "discussion", label: "Discussion", color: "bg-purple-500" },
 ];
 
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase();
+}
+
+function SwipeView({
+  posts,
+  onClose,
+}: {
+  posts: typeof mockPosts;
+  onClose: () => void;
+}) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [touchStart, setTouchStart] = useState(0);
+  const [touchEnd, setTouchEnd] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const currentPost = posts[currentIndex];
+
+  const goNext = () => {
+    if (currentIndex < posts.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+    }
+  };
+
+  const goPrev = () => {
+    if (currentIndex > 0) {
+      setCurrentIndex(currentIndex - 1);
+    }
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStart - touchEnd > 75) {
+      goNext();
+    }
+    if (touchStart - touchEnd < -75) {
+      goPrev();
+    }
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "ArrowRight") goNext();
+      if (e.key === "ArrowLeft") goPrev();
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [currentIndex]);
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black">
+      {/* Close button */}
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 z-50 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+      >
+        <X className="h-6 w-6 text-white" />
+      </button>
+
+      {/* Progress bar */}
+      <div className="absolute top-4 left-4 right-16 flex gap-1 z-40">
+        {posts.map((_, idx) => (
+          <div
+            key={idx}
+            className={`h-1 flex-1 rounded-full transition-colors ${
+              idx === currentIndex
+                ? "bg-white"
+                : idx < currentIndex
+                ? "bg-white/60"
+                : "bg-white/20"
+            }`}
+          />
+        ))}
+      </div>
+
+      {/* Main content */}
+      <div
+        ref={containerRef}
+        className="h-full flex items-center justify-center px-4"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        {/* Left arrow */}
+        <button
+          onClick={goPrev}
+          className={`absolute left-4 p-3 rounded-full bg-white/10 hover:bg-white/20 transition-all ${
+            currentIndex === 0 ? "opacity-30 cursor-not-allowed" : ""
+          }`}
+          disabled={currentIndex === 0}
+        >
+          <ChevronLeft className="h-6 w-6 text-white" />
+        </button>
+
+        {/* Story card */}
+        <div className="w-full max-w-md mx-auto">
+          <div className="bg-gradient-to-br from-[#002A5C] to-[#1a5fb4] rounded-2xl p-6 min-h-[70vh] flex flex-col">
+            {/* Author header */}
+            <div className="flex items-center gap-3 mb-6">
+              <Avatar className="h-12 w-12 border-2 border-white/30">
+                <AvatarFallback className="bg-white/20 text-white font-semibold">
+                  {getInitials(currentPost.author.name)}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <p className="text-white font-semibold">
+                  {currentPost.author.name}
+                </p>
+                <p className="text-white/60 text-sm">
+                  {currentPost.author.department} · {currentPost.createdAt}
+                </p>
+              </div>
+            </div>
+
+            {/* Post type badge */}
+            <Badge
+              className={`self-start mb-4 ${
+                currentPost.type === "looking-for"
+                  ? "bg-blue-500/80"
+                  : currentPost.type === "offering"
+                  ? "bg-green-500/80"
+                  : "bg-purple-500/80"
+              } text-white border-0`}
+            >
+              {currentPost.type === "looking-for"
+                ? "Looking For"
+                : currentPost.type === "offering"
+                ? "Offering"
+                : "Discussion"}
+            </Badge>
+
+            {/* Content */}
+            <div className="flex-1 flex items-center">
+              <p className="text-white text-xl leading-relaxed">
+                {currentPost.content}
+              </p>
+            </div>
+
+            {/* Tags */}
+            <div className="flex flex-wrap gap-2 mt-4">
+              {currentPost.tags.map((tag) => (
+                <Badge
+                  key={tag}
+                  variant="outline"
+                  className="border-white/30 text-white/80 text-xs"
+                >
+                  #{tag}
+                </Badge>
+              ))}
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center justify-around mt-6 pt-4 border-t border-white/10">
+              <button className="flex flex-col items-center gap-1 text-white/80 hover:text-white transition-colors">
+                <Heart className="h-6 w-6" />
+                <span className="text-xs">{currentPost.likes}</span>
+              </button>
+              <button className="flex flex-col items-center gap-1 text-white/80 hover:text-white transition-colors">
+                <MessageCircle className="h-6 w-6" />
+                <span className="text-xs">{currentPost.replies}</span>
+              </button>
+              <button className="flex flex-col items-center gap-1 text-white/80 hover:text-white transition-colors">
+                <Share2 className="h-6 w-6" />
+                <span className="text-xs">Share</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Post counter */}
+          <p className="text-center text-white/50 text-sm mt-4">
+            {currentIndex + 1} of {posts.length}
+          </p>
+        </div>
+
+        {/* Right arrow */}
+        <button
+          onClick={goNext}
+          className={`absolute right-4 p-3 rounded-full bg-white/10 hover:bg-white/20 transition-all ${
+            currentIndex === posts.length - 1
+              ? "opacity-30 cursor-not-allowed"
+              : ""
+          }`}
+          disabled={currentIndex === posts.length - 1}
+        >
+          <ChevronRight className="h-6 w-6 text-white" />
+        </button>
+      </div>
+
+      {/* Swipe hint */}
+      <p className="absolute bottom-4 left-0 right-0 text-center text-white/40 text-xs">
+        Swipe or use arrow keys to navigate · ESC to close
+      </p>
+    </div>
+  );
+}
+
 export default function FeedPage() {
   const [newPost, setNewPost] = useState("");
   const [selectedVisibility, setSelectedVisibility] = useState("everyone");
   const [selectedType, setSelectedType] = useState("looking-for");
   const [showComposer, setShowComposer] = useState(false);
+  const [viewMode, setViewMode] = useState<"feed" | "swipe">("feed");
+
+  if (viewMode === "swipe") {
+    return <SwipeView posts={mockPosts} onClose={() => setViewMode("feed")} />;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
         {/* Page Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-[#002A5C]">Feed</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            See what the UofT community is looking for and offering
-          </p>
+        <div className="mb-8 flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-[#002A5C]">Feed</h1>
+            <p className="mt-1 text-sm text-gray-500">
+              See what the UofT community is looking for and offering
+            </p>
+          </div>
+          {/* View Mode Toggle */}
+          <div className="flex items-center gap-1 bg-white rounded-lg shadow-sm p-1">
+            <Button
+              variant={viewMode === "feed" ? "default" : "ghost"}
+              size="sm"
+              className={`h-8 px-3 ${
+                viewMode === "feed"
+                  ? "bg-[#002A5C] text-white"
+                  : "text-gray-500"
+              }`}
+              onClick={() => setViewMode("feed")}
+            >
+              <LayoutGrid className="h-4 w-4 mr-1.5" />
+              Feed
+            </Button>
+            <Button
+              variant={viewMode === "swipe" ? "default" : "ghost"}
+              size="sm"
+              className={`h-8 px-3 ${
+                viewMode === "swipe"
+                  ? "bg-[#002A5C] text-white"
+                  : "text-gray-500"
+              }`}
+              onClick={() => setViewMode("swipe")}
+            >
+              <Layers className="h-4 w-4 mr-1.5" />
+              Stories
+            </Button>
+          </div>
         </div>
 
         {/* Compose Button / Area */}
