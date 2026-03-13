@@ -233,14 +233,12 @@ export default function MessagesPage() {
               </div>
 
               <ScrollArea className="flex-1">
-                {isLoading ? (
-                  <div className="flex justify-center py-8">
-                    <Loader2 className="h-8 w-8 animate-spin text-[#002A5C]" />
-                  </div>
-                ) : filteredConversations.length === 0 ? (
+                {filteredConversations.length === 0 ? (
                   <div className="p-8 text-center text-gray-500">
-                    <p>No conversations yet</p>
-                    <p className="text-sm mt-2">Start connecting with others!</p>
+                    <p>{isLoading ? "Loading conversations..." : "No conversations yet"}</p>
+                    {!isLoading && (
+                      <p className="text-sm mt-2">Start connecting with others!</p>
+                    )}
                   </div>
                 ) : (
                   filteredConversations.map((conv) => (
@@ -413,7 +411,7 @@ export default function MessagesPage() {
                 value={recipientSearch}
                 onChange={(e) => setRecipientSearch(e.target.value)}
               />
-              <ScrollArea className="max-h-48 mt-2 border rounded-md">
+              <ScrollArea className="h-40 mt-2 border rounded-md overflow-hidden">
                 {usersLoading ? (
                   <div className="flex justify-center py-6">
                     <Loader2 className="h-5 w-5 animate-spin text-[#002A5C]" />

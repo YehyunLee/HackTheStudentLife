@@ -1,21 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/lib/auth-context";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import {
-  mockResearchGroups,
-  mockResearchPrograms,
-  mockProfessorOpportunities,
-  mockSummerResearchAwards,
-  mockTAshipOfferings,
-  mockOtherOpportunities,
-} from "@/lib/mock-data";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ProfileCard } from "@/components/profile-card";
+import { fetchUsers, sendMessage, createPost, fetchPosts, type User, type Post } from "@/lib/api";
 import {
   Search,
   SlidersHorizontal,
@@ -29,12 +25,150 @@ import {
   FileText,
   DollarSign,
   MoreHorizontal,
+  Loader2,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
+  mockResearchGroups,
+  mockResearchPrograms,
+  mockProfessorOpportunities,
+  mockSummerResearchAwards,
+  mockTAshipOfferings,
+  mockOtherOpportunities,
+  type UserProfile,
+} from "@/lib/mock-data";
 
 export default function DiscoverPage() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user: currentUser } = useAuth();
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [connectTarget, setConnectTarget] = useState<User | null>(null);
+  const [connectMessage, setConnectMessage] = useState("Hi! I'd love to connect and learn more about what you're working on.");
+  const [connectError, setConnectError] = useState<string | null>(null);
+  const [isSending, setIsSending] = useState(false);
+  const [profileUser, setProfileUser] = useState<User | null>(null);
+  
+  // Post creation state
+  const [showPostComposer, setShowPostComposer] = useState(false);
+  const [postContent, setPostContent] = useState("");
+  const [postType, setPostType] = useState<"offering" | "discussion">("offering");
+  const [postTags, setPostTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState("");
+  const [isPosting, setIsPosting] = useState(false);
+  
+  // Posts state for discover
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [isLoadingPosts, setIsLoadingPosts] = useState(false);
+
+  const loadUsers = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError("");
+      const fetchedUsers = await fetchUsers();
+      setUsers(fetchedUsers);
+    } catch (err) {
+      console.error("Failed to load users", err);
+      setError("Unable to load users. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const loadPosts = useCallback(async () => {
+    try {
+      setIsLoadingPosts(true);
+      const fetchedPosts = await fetchPosts();
+      setPosts(fetchedPosts);
+    } catch (err) {
+      console.error("Failed to load posts", err);
+    } finally {
+      setIsLoadingPosts(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadUsers();
+      loadPosts();
+    }
+  }, [isAuthenticated, loadUsers, loadPosts]);
+
+  const mapUserToProfileCard = (user: User): UserProfile => ({
+    id: user.userId,
+    name: user.name,
+    role: user.role as any,
+    avatar: "",
+    department: user.department,
+    year: user.year,
+    bio: user.bio,
+    interests: user.interests,
+    lookingFor: user.lookingFor,
+    email: user.email,
+  });
+
+  const getMatchScore = () => Math.floor(Math.random() * 30) + 70;
+
+  const handleCreatePost = async () => {
+    if (!postContent.trim() || !currentUser?.isInstructor) return;
+    
+    setIsPosting(true);
+    try {
+      await createPost({
+        content: postContent.trim(),
+        type: postType,
+        tags: postTags,
+        visibility: "everyone",
+      });
+      setPostContent("");
+      setPostTags([]);
+      setTagInput("");
+      setShowPostComposer(false);
+      // Refresh posts after creation
+      await loadPosts();
+    } catch (err) {
+      console.error('Failed to create post', err);
+      alert('Unable to create post. Please try again.');
+    } finally {
+      setIsPosting(false);
+    }
+  };
+
+  const addTag = () => {
+    const tag = tagInput.trim();
+    if (tag && !postTags.includes(tag)) {
+      setPostTags([...postTags, tag]);
+      setTagInput("");
+    }
+  };
+
+  const removeTag = (tagToRemove: string) => {
+    setPostTags(postTags.filter(tag => tag !== tagToRemove));
+  };
+
+  const filteredUsers = users.filter((user) =>
+    !searchQuery ||
+    user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    user.department.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    user.interests.some((interest) => interest.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
 
   const filteredResearchGroups = mockResearchGroups.filter((group) =>
     !searchQuery ||
@@ -130,22 +264,177 @@ export default function DiscoverPage() {
               <SlidersHorizontal className="h-4 w-4" />
             </Button>
           </div>
+          
+          {/* Instructor Post Composer */}
+          {currentUser?.isInstructor && (
+            <Card className="bg-gradient-to-r from-[#002A5C]/5 to-blue-50 border-[#002A5C]/20">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-full bg-[#002A5C] flex items-center justify-center">
+                      <Award className="h-4 w-4 text-white" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-sm text-[#002A5C]">Instructor Opportunity Board</p>
+                      <p className="text-xs text-gray-600">Share opportunities with students</p>
+                    </div>
+                  </div>
+                  <Badge className="bg-[#002A5C] text-white text-xs">Verified Instructor</Badge>
+                </div>
+                {!showPostComposer ? (
+                  <Button
+                    onClick={() => setShowPostComposer(true)}
+                    className="w-full bg-[#002A5C] text-white hover:bg-[#002A5C]/90"
+                  >
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Post Opportunity
+                  </Button>
+                ) : (
+                  <div className="space-y-3">
+                    <Textarea
+                      placeholder="Describe the research opportunity, position, or resource you're offering..."
+                      value={postContent}
+                      onChange={(e) => setPostContent(e.target.value)}
+                      className="min-h-[100px] resize-none"
+                    />
+                    
+                    {/* Post Type Selection */}
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant={postType === "offering" ? "default" : "outline"}
+                        onClick={() => setPostType("offering")}
+                        className={postType === "offering" ? "bg-[#002A5C] text-white" : ""}
+                      >
+                        Offering
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={postType === "discussion" ? "default" : "outline"}
+                        onClick={() => setPostType("discussion")}
+                        className={postType === "discussion" ? "bg-[#002A5C] text-white" : ""}
+                      >
+                        Discussion
+                      </Button>
+                    </div>
+                    
+                    {/* Tags */}
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Add tags (e.g., machine-learning, paid, undergraduate)"
+                          value={tagInput}
+                          onChange={(e) => setTagInput(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addTag())}
+                          className="flex-1"
+                        />
+                        <Button size="sm" onClick={addTag} variant="outline">Add</Button>
+                      </div>
+                      {postTags.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {postTags.map((tag) => (
+                            <Badge key={tag} variant="secondary" className="text-xs">
+                              {tag}
+                              <button
+                                onClick={() => removeTag(tag)}
+                                className="ml-1 text-gray-500 hover:text-gray-700"
+                              >
+                                ×
+                              </button>
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Actions */}
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={handleCreatePost}
+                        disabled={!postContent.trim() || isPosting}
+                        className="flex-1 bg-[#002A5C] text-white hover:bg-[#002A5C]/90"
+                      >
+                        {isPosting ? "Posting..." : "Post Opportunity"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setShowPostComposer(false);
+                          setPostContent("");
+                          setPostTags([]);
+                          setTagInput("");
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
 
-        {/* AI Match Banner */}
-        <div className="mb-6 rounded-xl bg-gradient-to-r from-[#002A5C] to-blue-600 p-5 text-white">
-          <div className="flex items-start gap-3">
-            <Sparkles className="h-6 w-6 shrink-0 text-yellow-300 mt-0.5" />
-            <div>
-              <h3 className="font-semibold">AI-Powered Matching</h3>
-              <p className="mt-1 text-sm text-blue-100">
-                Amazon Personalize analyzes your interests, goals, and activity
-                to surface the most relevant connections. Match scores show how
-                well someone aligns with your profile.
-              </p>
+        {/* Instructor Posts */}
+        {posts.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-lg font-semibold text-[#002A5C] mb-4 flex items-center gap-2">
+              <Award className="h-5 w-5" />
+              Latest Opportunities from Instructors
+            </h2>
+            <div className="space-y-4">
+              {isLoadingPosts ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-[#002A5C]" />
+                </div>
+              ) : (
+                posts
+                  .filter(post => post.type === "offering" || post.type === "discussion")
+                  .map((post) => (
+                    <Card key={post.postId} className="bg-white border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-3 mb-3">
+                          <div className="h-10 w-10 rounded-full bg-[#002A5C]/10 flex items-center justify-center">
+                            <Award className="h-5 w-5 text-[#002A5C]" />
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-semibold text-sm text-[#002A5C]">{post.author.name}</span>
+                              <Badge className="bg-[#002A5C] text-white text-xs">Verified Instructor</Badge>
+                              <Badge 
+                                className={`text-xs ${
+                                  post.type === "offering" 
+                                    ? "bg-green-100 text-green-700" 
+                                    : "bg-purple-100 text-purple-700"
+                                }`}
+                              >
+                                {post.type === "offering" ? "Opportunity" : "Discussion"}
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-gray-500">
+                              {post.author.department} · {new Date(post.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                        <p className="text-sm text-gray-700 leading-relaxed mb-3">
+                          {post.content}
+                        </p>
+                        {post.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {post.tags.map((tag) => (
+                              <Badge key={tag} variant="secondary" className="text-xs bg-[#002A5C]/5 text-[#002A5C]">
+                                #{tag}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))
+              )}
             </div>
           </div>
-        </div>
+        )}
 
         {/* Results Sections */}
         <div className="space-y-8">
@@ -443,6 +732,145 @@ export default function DiscoverPage() {
           )}
         </div>
       </div>
+
+      <Dialog open={!!connectTarget} onOpenChange={(open) => {
+        if (!open) {
+          setConnectTarget(null);
+          setConnectMessage("Hi! I'd love to connect and learn more about what you're working on.");
+          setConnectError(null);
+        }
+      }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Send a message</DialogTitle>
+            <DialogDescription>
+              Start a conversation with {connectTarget?.name}
+            </DialogDescription>
+          </DialogHeader>
+          {connectTarget && (
+            <div className="space-y-4">
+              <div className="rounded-md border p-3 bg-gray-50">
+                <p className="text-sm font-semibold text-gray-900">{connectTarget.name}</p>
+                <p className="text-xs text-gray-500">{connectTarget.role} · {connectTarget.department}</p>
+                {connectTarget.interests?.length ? (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {connectTarget.interests.slice(0, 4).map((interest) => (
+                      <Badge key={interest} variant="secondary" className="text-[10px]">
+                        {interest}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+              <Textarea
+                value={connectMessage}
+                onChange={(e) => setConnectMessage(e.target.value)}
+                rows={4}
+                placeholder="Introduce yourself and mention why you'd like to connect"
+              />
+              {connectError && (
+                <p className="text-sm text-red-500">{connectError}</p>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setConnectTarget(null)} disabled={isSending}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-[#002A5C]"
+              onClick={async () => {
+                if (!connectTarget || !connectMessage.trim()) {
+                  setConnectError("Message cannot be empty");
+                  return;
+                }
+                if (currentUser?.userId === connectTarget.userId) {
+                  setConnectError("You cannot message yourself.");
+                  return;
+                }
+                try {
+                  setIsSending(true);
+                  setConnectError(null);
+                  await sendMessage({ recipientId: connectTarget.userId, content: connectMessage.trim() });
+                  setConnectTarget(null);
+                  setConnectMessage("Hi! I'd love to connect and learn more about what you're working on.");
+                  router.push("/messages");
+                } catch (err) {
+                  console.error('Connect message failed', err);
+                  setConnectError("Failed to send message. Please try again.");
+                } finally {
+                  setIsSending(false);
+                }
+              }}
+              disabled={isSending || !connectMessage.trim()}
+            >
+              {isSending ? "Sending..." : "Send Message"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+        <Sheet open={!!profileUser} onOpenChange={(open) => {
+          if (!open) setProfileUser(null);
+        }}>
+          <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+            <SheetHeader className="mb-4">
+              <SheetTitle>Profile preview</SheetTitle>
+              <SheetDescription>Learn more before reaching out</SheetDescription>
+            </SheetHeader>
+            {profileUser && (
+              <div className="space-y-4 text-sm text-gray-700">
+                <div>
+                  <p className="text-xl font-semibold text-[#002A5C]">{profileUser.name}</p>
+                  <p className="text-xs text-gray-500">{profileUser.role} · {profileUser.department}</p>
+                </div>
+                {profileUser.bio && (
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-gray-400">Bio</p>
+                    <p className="mt-1 text-sm text-gray-700 whitespace-pre-line">{profileUser.bio}</p>
+                  </div>
+                )}
+                {profileUser.interests?.length ? (
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-gray-400">Interests</p>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {profileUser.interests.map((interest) => (
+                        <Badge key={interest} variant="secondary" className="text-[10px]">
+                          {interest}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                {profileUser.lookingFor?.length ? (
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-gray-400">Looking for</p>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {profileUser.lookingFor.map((item) => (
+                        <Badge key={item} variant="outline" className="text-[10px] text-gray-600">
+                          {item}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                {profileUser.linkedin && (
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-gray-400">Links</p>
+                    <a
+                      href={profileUser.linkedin}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[#002A5C] underline break-words"
+                    >
+                      {profileUser.linkedin}
+                    </a>
+                  </div>
+                )}
+              </div>
+            )}
+          </SheetContent>
+        </Sheet>
     </div>
   );
 }

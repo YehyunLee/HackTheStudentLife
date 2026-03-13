@@ -13,7 +13,7 @@ Students often struggle to identify and connect with professors, research groups
 **UofT Connect** is a web platform where students, alumni, and professors can:
 
 - **Post** what they're looking for (mentors, research opportunities, study groups) or offering (mentorship, career advice, collaborations)
-- **Discover** people matched to their interests via AI-powered recommendations
+- **Discover** people with similar interests and goals
 - **Connect** through casual messaging with privacy controls
 - **Build** meaningful relationships across the UofT community
 
@@ -22,7 +22,7 @@ Students often struggle to identify and connect with professors, research groups
 | Feature | Description |
 |---------|-------------|
 | **Intent-driven Posts** | Share what you're looking for or offering with customizable privacy (everyone, students only, faculty only) |
-| **AI Matching** | Amazon Personalize surfaces relevant connections based on interests, goals, and activity |
+| **Smart Discovery** | Browse and filter users by role, department, and interests |
 | **Dual UX Modes** | Casual vibe for students/alumni, professional dashboard for faculty/mentors |
 | **Privacy Controls** | Choose who can see your posts and who can message you |
 | **Real-time Chat** | Lightweight messaging with conversation starters auto-generated from shared interests |
@@ -49,12 +49,6 @@ Students often struggle to identify and connect with professors, research groups
 │          │                    │           │  (Profiles,  │                   │
 │          │                    │           │   Posts)     │                   │
 │          │                    │           └──────────────┘                   │
-│          │                    │                    │                         │
-│          │                    │                    ▼                         │
-│          │                    │           ┌──────────────┐                   │
-│          │                    │           │  Personalize │                   │
-│          │                    │           │  (Matching)  │                   │
-│          │                    │           └──────────────┘                   │
 │          │                    │                                              │
 │          ▼                    ▼                                              │
 │   ┌──────────────┐     ┌──────────────┐                                     │
@@ -73,11 +67,7 @@ Students often struggle to identify and connect with professors, research groups
 | **AWS Lambda** | PreSignUp trigger for email validation, API handlers | ✅ Configured (domain guard + CRUD API) |
 | **Amazon API Gateway** | HTTP API for posts/users CRUD | ✅ Configured (proxying to Lambda) |
 | **Amazon DynamoDB** | Store user profiles, posts, connections, messages | ✅ Configured (separate tables for posts & users) |
-| **Amazon Personalize** | AI-powered matching and recommendation engine | 🔜 Planned |
-| **Amazon SES** | Email notifications and weekly digests | 🔜 Planned |
-| **AWS Amplify** | Frontend hosting with CI/CD | 🔜 Planned |
-| **Amazon CloudFront** | CDN for fast global delivery | 🔜 Planned |
-| **Amazon QuickSight** | Analytics dashboard for organizers | 🔜 Planned |
+| **AWS Amplify** | Frontend hosting with CI/CD | ✅ Configured |
 
 **Live data flow overview:**
 

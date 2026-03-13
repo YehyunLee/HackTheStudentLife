@@ -10,6 +10,7 @@ export interface UserProfile {
   bio: string;
   interests: string[];
   lookingFor: string[];
+  email?: string;
   matchScore?: number;
 }
 

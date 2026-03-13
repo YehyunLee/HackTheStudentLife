@@ -1,7 +1,7 @@
-"use client";
+  "use client";
 
 import Link from "next/link";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, type Dispatch, type SetStateAction } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,8 +10,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PostCard } from "@/components/post-card";
 import { mockPosts } from "@/lib/mock-data";
-import { fetchPosts, createPost, updatePost, deletePost, likePost, unlikePost, type Post as ApiPost } from "@/lib/api";
+import { fetchPosts, createPost, updatePost, deletePost, likePost, unlikePost, replyToPost, sendMessage, type Post as ApiPost, type User as ApiUser } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import { useRouter } from "next/navigation";
 import {
   PenSquare,
   Eye,
@@ -41,13 +42,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 const visibilityOptions: { value: "everyone" | "students" | "faculty" | "alumni"; label: string; icon: typeof Eye }[] = [
   { value: "everyone", label: "Everyone", icon: Eye },
-  { value: "students", label: "Students Only", icon: GraduationCap },
-  { value: "faculty", label: "Faculty Only", icon: Users },
-  { value: "alumni", label: "Alumni Only", icon: Lock },
+  { value: "students", label: "Students", icon: GraduationCap },
+  { value: "faculty", label: "Faculty", icon: Users },
+  { value: "alumni", label: "Alumni", icon: Lock },
 ];
+
+type VisibilityAudience = (typeof visibilityOptions)[number]["value"];
 
 const postTypes: { value: "looking-for" | "offering" | "discussion"; label: string; color: string }[] = [
   { value: "looking-for", label: "Looking For", color: "bg-blue-500" },
@@ -61,7 +65,49 @@ const typeColors = {
   discussion: "bg-purple-100 text-purple-700",
 };
 
-type FeedPost = ApiPost | (typeof mockPosts)[number];
+type FeedPost = (ApiPost & {
+  repliesList?: ApiPost["repliesList"];
+  visibilityGroups?: ApiPost["visibilityGroups"];
+}) | (typeof mockPosts)[number];
+
+type MessageTarget = {
+  userId: string;
+  name: string;
+  department?: string;
+  role?: string;
+  email?: string;
+};
+
+const ensureAudiences = (groups?: VisibilityAudience[]): VisibilityAudience[] => {
+  if (!groups || groups.length === 0) {
+    return ["everyone"];
+  }
+
+  const allowed = new Set(visibilityOptions.map((opt) => opt.value));
+  const cleaned = groups
+    .map((aud) => (allowed.has(aud) ? aud : null))
+    .filter((aud): aud is VisibilityAudience => Boolean(aud));
+
+  if (cleaned.length === 0) {
+    return ["everyone"];
+  }
+
+  return Array.from(new Set(cleaned)) as VisibilityAudience[];
+};
+
+const toggleAudience = (
+  value: VisibilityAudience,
+  setter: Dispatch<SetStateAction<VisibilityAudience[]>>
+) => {
+  setter((prev) => {
+    const exists = prev.includes(value);
+    if (exists) {
+      if (prev.length === 1) return prev; // must keep at least one audience
+      return prev.filter((aud) => aud !== value);
+    }
+    return [...prev, value];
+  });
+};
 
 function getInitials(name: string) {
   return name
@@ -76,16 +122,46 @@ const getPostKey = (post: FeedPost) => ("postId" in post ? post.postId : post.id
 function SwipeView({
   posts,
   onClose,
+  onLikePost,
+  onUnlikePost,
+  onViewProfile,
+  isPostLiked,
 }: {
   posts: FeedPost[];
   onClose: () => void;
+  onLikePost?: (post: FeedPost) => void;
+  onUnlikePost?: (post: FeedPost) => void;
+  onViewProfile?: (author: FeedPost["author"]) => void;
+  isPostLiked?: (post: FeedPost) => boolean;
 }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [dragStartX, setDragStartX] = useState<number | null>(null);
   const [dragDelta, setDragDelta] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [slideWidth, setSlideWidth] = useState(0);
+  const [replyDialogOpen, setReplyDialogOpen] = useState(false);
+  const [replyContent, setReplyContent] = useState("");
+  const [isReplying, setIsReplying] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const handleReply = async () => {
+    const currentPost = posts[currentIndex];
+    if (!('postId' in currentPost) || !replyContent.trim()) return;
+    
+    setIsReplying(true);
+    try {
+      const updatedPost = await replyToPost(currentPost.postId, replyContent.trim());
+      // Update the post in the posts array
+      posts[currentIndex] = updatedPost;
+      setReplyContent("");
+      setReplyDialogOpen(false);
+    } catch (err) {
+      console.error('Failed to submit reply', err);
+      alert('Unable to add reply. Please try again.');
+    } finally {
+      setIsReplying(false);
+    }
+  };
 
   const goNext = useCallback(() => {
     setCurrentIndex((prev) => (prev + 1) % posts.length);
@@ -117,7 +193,7 @@ function SwipeView({
   const handlePointerUp = (e: React.PointerEvent) => {
     if (dragStartX === null) return;
 
-    const threshold = slideWidth ? slideWidth * 0.4 : 75;
+    const threshold = slideWidth ? Math.min(slideWidth * 0.22, 140) : 60;
     const shouldNext = dragDelta < -threshold;
     const shouldPrev = dragDelta > threshold;
 
@@ -258,6 +334,14 @@ function SwipeView({
                 const scale = isCurrent ? 1 : 0.94;
                 const translateY = isCurrent ? 0 : 12;
                 const depth = isCurrent ? 0 : -60;
+                const liked = isPostLiked?.(post) ?? false;
+                const handleStoryLike = () => {
+                  if (liked) {
+                    onUnlikePost?.(post);
+                  } else {
+                    onLikePost?.(post);
+                  }
+                };
                 return (
                   <div key={index} className="w-full flex-none min-w-0">
                     <div
@@ -272,7 +356,11 @@ function SwipeView({
                       }}
                     >
                     {/* Author header */}
-                    <div className="flex items-center gap-3 mb-6">
+                    <button
+                      type="button"
+                      className="flex items-center gap-3 mb-6 text-left"
+                      onClick={() => onViewProfile?.(post.author)}
+                    >
                       <Avatar className="h-12 w-12 border-2 border-white/30">
                         <AvatarFallback className="bg-white/20 text-white font-semibold">
                           {getInitials(post.author.name)}
@@ -286,7 +374,7 @@ function SwipeView({
                           {post.author.department} · {post.createdAt}
                         </p>
                       </div>
-                    </div>
+                    </button>
 
                     {/* Post type badge */}
                     <Badge
@@ -326,16 +414,29 @@ function SwipeView({
                     </div>
 
                     {/* Actions */}
-                    <div className="flex items-center justify-around mt-6 pt-4 border-t border-white/15">
-                      <button className="flex flex-col items-center gap-1 text-white/80 hover:text-white transition-colors">
-                        <Heart className="h-6 w-6" />
+                    <div className="flex items-center justify-around mt-6 pt-4 border-t border-white/15 pointer-events-none">
+                      <button
+                        className={`flex flex-col items-center gap-1 transition-colors pointer-events-auto ${liked ? "text-rose-300" : "text-white/80 hover:text-white"}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleStoryLike();
+                        }}
+                        disabled={!('postId' in post)}
+                      >
+                        <Heart className={`h-6 w-6 ${liked ? "fill-current" : ""}`} />
                         <span className="text-xs">{post.likes}</span>
                       </button>
-                      <button className="flex flex-col items-center gap-1 text-white/80 hover:text-white transition-colors">
+                      <button 
+                        className="flex flex-col items-center gap-1 text-white/80 hover:text-white transition-colors pointer-events-auto"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setReplyDialogOpen(true);
+                        }}
+                      >
                         <MessageCircle className="h-6 w-6" />
                         <span className="text-xs">{post.replies}</span>
                       </button>
-                      <button className="flex flex-col items-center gap-1 text-white/80 hover:text-white transition-colors">
+                      <button className="flex flex-col items-center gap-1 text-white/80 hover:text-white transition-colors pointer-events-auto">
                         <Share2 className="h-6 w-6" />
                         <span className="text-xs">Share</span>
                       </button>
@@ -362,49 +463,133 @@ function SwipeView({
             <ChevronRight className="h-6 w-6 text-white" />
           </button>
         </div>
-
-        {/* Swipe hint */}
-        <p className="absolute bottom-4 left-0 right-0 text-center text-white/50 text-[11px] tracking-wide">
-          Swipe or use arrow keys to navigate · ESC to close
-        </p>
       </div>
+
+      {/* Reply Dialog */}
+      <Dialog open={replyDialogOpen} onOpenChange={setReplyDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Reply to Post</DialogTitle>
+            <DialogDescription>
+              Reply to {posts[currentIndex]?.author?.name}'s post
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="rounded-lg border p-3 bg-gray-50">
+              <p className="text-sm text-gray-700 whitespace-pre-line">
+                {posts[currentIndex]?.content}
+              </p>
+            </div>
+            <textarea
+              className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#002A5C]"
+              rows={4}
+              placeholder="Share your thoughts or offer help..."
+              value={replyContent}
+              onChange={(e) => setReplyContent(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setReplyDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-[#002A5C] text-white"
+              onClick={handleReply}
+              disabled={isReplying || !replyContent.trim() || !('postId' in posts[currentIndex])}
+            >
+              {isReplying ? 'Sending…' : 'Reply'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
 export default function FeedPage() {
   const { isAuthenticated, user } = useAuth();
+  const router = useRouter();
   const [newPost, setNewPost] = useState("");
-  const [selectedVisibility, setSelectedVisibility] = useState<"everyone" | "students" | "faculty" | "alumni">("everyone");
+  const [selectedVisibilityGroups, setSelectedVisibilityGroups] = useState<VisibilityAudience[]>(["everyone"]);
   const [selectedType, setSelectedType] = useState<"looking-for" | "offering" | "discussion">("looking-for");
   const [showComposer, setShowComposer] = useState(false);
   const [viewMode, setViewMode] = useState<"feed" | "swipe">("feed");
   const [posts, setPosts] = useState<ApiPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshingPosts, setIsRefreshingPosts] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
-  const [error, setError] = useState("");
-  const [selectedPost, setSelectedPost] = useState<FeedPost | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isMessageDialogOpen, setIsMessageDialogOpen] = useState(false);
+  const [messageTarget, setMessageTarget] = useState<MessageTarget | null>(null);
+  const [messageContent, setMessageContent] = useState("Hi! I'd love to chat about your post.");
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [showViewDialog, setShowViewDialog] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<FeedPost | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editContent, setEditContent] = useState("");
   const [editType, setEditType] = useState<"looking-for" | "offering" | "discussion">("looking-for");
-  const [editVisibility, setEditVisibility] = useState<"everyone" | "students" | "faculty" | "alumni">("everyone");
+  const [editVisibilityGroups, setEditVisibilityGroups] = useState<VisibilityAudience[]>(["everyone"]);
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [replyContent, setReplyContent] = useState("");
+  const [isReplying, setIsReplying] = useState(false);
+  const [profileSheetOpen, setProfileSheetOpen] = useState(false);
+  const [profileAuthor, setProfileAuthor] = useState<ApiUser | FeedPost["author"] | null>(null);
 
-  const loadPosts = useCallback(async () => {
+  const handleMessageAuthor = (post: FeedPost) => {
+    if (!isAuthenticated) {
+      router.push("/login");
+      return;
+    }
+
+    if (!("authorId" in post)) return;
+    if (post.authorId === user?.userId) return;
+
+    setMessageTarget({
+      userId: post.authorId,
+      email: post.author.email,
+      name: post.author.name,
+      role: post.author.role,
+      department: post.author.department,
+    });
+
+    const firstName = post.author.name.split(" ")[0];
+    setMessageContent(
+      `Hi ${firstName}, I saw your post about "${post.content.slice(0, 60)}" and would love to chat!`
+    );
+    setIsMessageDialogOpen(true);
+  };
+
+  const loadPosts = useCallback(async (options?: { silent?: boolean }) => {
     if (!isAuthenticated) {
       setIsLoading(false);
       return;
     }
+    const silent = options?.silent;
     try {
-      setIsLoading(true);
+      if (silent) {
+        setIsRefreshingPosts(true);
+      } else {
+        setIsLoading(true);
+      }
       const data = await fetchPosts();
-      setPosts(data);
+      setPosts((prev) => {
+        const prevJson = JSON.stringify(prev);
+        const nextJson = JSON.stringify(data);
+        return prevJson === nextJson ? prev : data;
+      });
     } catch (err) {
       console.error("Failed to load posts", err);
     } finally {
-      setIsLoading(false);
+      if (silent) {
+        setIsRefreshingPosts(false);
+      } else {
+        setIsLoading(false);
+      }
     }
   }, [isAuthenticated]);
 
@@ -415,8 +600,8 @@ export default function FeedPage() {
   useEffect(() => {
     if (!isAuthenticated) return;
     const interval = setInterval(() => {
-      loadPosts();
-    }, 15000);
+      loadPosts({ silent: true });
+    }, 7000);
     return () => clearInterval(interval);
   }, [isAuthenticated, loadPosts]);
 
@@ -426,15 +611,22 @@ export default function FeedPage() {
     setIsPosting(true);
     setError("");
     try {
-      const created = await createPost({
-        content: newPost,
+      const audiences = ensureAudiences(selectedVisibilityGroups);
+      const derivedRole = "student" as const;
+      const derivedDepartment = "Unknown";
+      const payload = {
+        content: newPost.trim(),
         tags: [],
         type: selectedType,
-        visibility: selectedVisibility,
-        authorName: user?.name,
+        visibility: audiences[0],
+        visibilityGroups: audiences,
+        authorRole: derivedRole,
+        authorDepartment: derivedDepartment,
         authorEmail: user?.email,
+        authorName: user?.name,
         clientUserId: user?.userId,
-      });
+      };
+      const created = await createPost(payload);
       setPosts((prev) => [created, ...prev]);
       setNewPost("");
       setShowComposer(false);
@@ -446,16 +638,39 @@ export default function FeedPage() {
     }
   };
 
+  const handleSubmitReply = async () => {
+    if (!isAuthenticated || !replyContent.trim() || !selectedPost || !('postId' in selectedPost)) {
+      return;
+    }
+    setIsReplying(true);
+    try {
+      const updatedPost = await replyToPost(selectedPost.postId, replyContent.trim());
+      setPosts((prev) => prev.map((p) => (getPostKey(p) === getPostKey(selectedPost) ? updatedPost : p)));
+      setSelectedPost(updatedPost);
+      setReplyContent("");
+    } catch (err) {
+      console.error('Failed to submit reply', err);
+      alert('Unable to add reply. Please try again.');
+    } finally {
+      setIsReplying(false);
+    }
+  };
+
   const handleViewPost = (post: FeedPost) => {
     setSelectedPost(post);
     setShowViewDialog(true);
+    setReplyContent("");
   };
 
   const handleEditPost = (post: FeedPost) => {
+    if (!('postId' in post)) return;
     setSelectedPost(post);
     setEditContent(post.content);
     setEditType(post.type);
-    setEditVisibility(post.visibility);
+    const apiPost = post as ApiPost;
+    const incomingGroups = apiPost.visibilityGroups as VisibilityAudience[] | undefined;
+    const audiences = ensureAudiences(incomingGroups);
+    setEditVisibilityGroups(audiences);
     setShowEditDialog(true);
   };
 
@@ -482,10 +697,12 @@ export default function FeedPage() {
     setIsEditing(true);
     setError('');
     try {
+      const audiences = ensureAudiences(editVisibilityGroups);
       const updated = await updatePost(selectedPost.postId, {
         content: editContent,
         type: editType,
-        visibility: editVisibility,
+        visibility: audiences[0],
+        visibilityGroups: audiences,
         clientEmail: user?.email,
         clientUserId: user?.userId,
       });
@@ -568,8 +785,22 @@ export default function FeedPage() {
     );
   }
 
+  const handleViewProfile = (author: FeedPost["author"]) => {
+    setProfileAuthor(author);
+    setProfileSheetOpen(true);
+  };
+
   if (viewMode === "swipe") {
-    return <SwipeView posts={displayPosts} onClose={() => setViewMode("feed")} />;
+    return (
+      <SwipeView
+        posts={displayPosts}
+        onClose={() => setViewMode("feed")}
+        onLikePost={handleLikePost}
+        onUnlikePost={handleUnlikePost}
+        onViewProfile={handleViewProfile}
+        isPostLiked={isPostLiked}
+      />
+    );
   }
 
   return (
@@ -578,10 +809,16 @@ export default function FeedPage() {
         {/* Page Header */}
         <div className="mb-8 flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-[#002A5C]">Feed</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              See what the UofT community is looking for and offering
-            </p>
+            <div className="flex items-center gap-2">
+              <h1 className="text-3xl font-bold text-[#002A5C]">Messages</h1>
+              {isRefreshingPosts && (
+                <div className="flex items-center gap-1 text-xs text-gray-500">
+                  <span className="inline-flex h-2 w-2 rounded-full bg-[#002A5C] animate-pulse" />
+                  Updating
+                </div>
+              )}
+            </div>
+            <p className="text-gray-500 mt-1">Connect with your UofT community</p>
           </div>
           {/* View Mode Toggle */}
           <div className="flex items-center gap-1 bg-white rounded-lg shadow-sm p-1">
@@ -665,20 +902,17 @@ export default function FeedPage() {
                 <div className="flex flex-wrap gap-2">
                   {visibilityOptions.map((opt) => {
                     const Icon = opt.icon;
+                    const isSelected = selectedVisibilityGroups.includes(opt.value);
                     return (
                       <Badge
                         key={opt.value}
-                        variant={
-                          selectedVisibility === opt.value
-                            ? "default"
-                            : "outline"
-                        }
+                        variant={isSelected ? "default" : "outline"}
                         className={`cursor-pointer text-xs gap-1 ${
-                          selectedVisibility === opt.value
+                          isSelected
                             ? "bg-[#002A5C] text-white"
                             : "hover:bg-gray-100"
                         }`}
-                        onClick={() => setSelectedVisibility(opt.value)}
+                        onClick={() => toggleAudience(opt.value, setSelectedVisibilityGroups)}
                       >
                         <Icon className="h-3 w-3" />
                         {opt.label}
@@ -699,7 +933,7 @@ export default function FeedPage() {
                 </Button>
                 <Button
                   size="sm"
-                  className="bg-[#002A5C] hover:bg-[#002A5C]/90 text-white"
+                  className="bg-[#002A5C] text-white"
                   disabled={!newPost.trim() || !isAuthenticated || isPosting}
                   onClick={handleCreatePost}
                 >
@@ -747,10 +981,13 @@ export default function FeedPage() {
                   isOwnPost={isOwnPost(post)}
                   isLiked={isPostLiked(post)}
                   onView={handleViewPost}
+                  onViewProfile={handleViewProfile}
+                  onReply={handleViewPost}
                   onEdit={handleEditPost}
                   onDelete={handleDeletePost}
                   onLike={handleLikePost}
                   onUnlike={handleUnlikePost}
+                  onMessage={handleMessageAuthor}
                 />
               ))
             )}
@@ -764,10 +1001,12 @@ export default function FeedPage() {
                 isOwnPost={isOwnPost(post)}
                 isLiked={isPostLiked(post)}
                 onView={handleViewPost}
+                onReply={handleViewPost}
                 onEdit={handleEditPost}
                 onDelete={handleDeletePost}
                 onLike={handleLikePost}
                 onUnlike={handleUnlikePost}
+                onMessage={handleMessageAuthor}
               />
             ))}
           </TabsContent>
@@ -789,10 +1028,12 @@ export default function FeedPage() {
                 isOwnPost={isOwnPost(post)}
                 isLiked={isPostLiked(post)}
                 onView={handleViewPost}
+                onReply={handleViewPost}
                 onEdit={handleEditPost}
                 onDelete={handleDeletePost}
                 onLike={handleLikePost}
                 onUnlike={handleUnlikePost}
+                onMessage={handleMessageAuthor}
               />
             ))}
           </TabsContent>
@@ -809,29 +1050,53 @@ export default function FeedPage() {
                     Posted by {selectedPost.author.name} · {selectedPost.createdAt}
                   </DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Badge className={typeColors[selectedPost.type]}>
-                      {selectedPost.type === "looking-for" ? "Looking For" : selectedPost.type === "offering" ? "Offering" : "Discussion"}
-                    </Badge>
+                <div className="space-y-4 py-2">
+                  <div className="rounded-lg border p-4">
+                    <p className="text-sm text-gray-700 whitespace-pre-line">{selectedPost.content}</p>
                   </div>
-                  <p className="text-sm leading-relaxed">{selectedPost.content}</p>
-                  {selectedPost.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {selectedPost.tags.map((tag) => (
-                        <Badge key={tag} variant="secondary" className="text-xs">
-                          #{tag}
-                        </Badge>
-                      ))}
+                  <div className="rounded-lg border p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-semibold text-sm text-gray-900">
+                        Replies ({selectedPost.replies || (selectedPost as any).repliesList?.length || 0})
+                      </h4>
+                      <span className="text-xs text-gray-500">Newest first</span>
                     </div>
-                  )}
-                  <div className="flex items-center gap-4 text-sm text-gray-500">
-                    <span className="flex items-center gap-1">
-                      <Heart className="h-4 w-4" /> {selectedPost.likes}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <MessageCircle className="h-4 w-4" /> {selectedPost.replies}
-                    </span>
+                    {Array.isArray((selectedPost as any).repliesList) && (selectedPost as any).repliesList.length > 0 ? (
+                      <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+                        {[...(selectedPost as any).repliesList]
+                          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                          .map((reply) => (
+                            <div key={reply.replyId} className="rounded-md border border-gray-100 p-3 bg-gray-50">
+                              <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                                <span className="font-medium text-gray-700">{reply.author.name}</span>
+                                <span>{new Date(reply.createdAt).toLocaleString()}</span>
+                              </div>
+                              <p className="text-sm text-gray-800 whitespace-pre-line">{reply.content}</p>
+                            </div>
+                          ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">No replies yet. Be the first to respond.</p>
+                    )}
+                    <div className="mt-3 flex flex-col gap-2">
+                      <textarea
+                        className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#002A5C]"
+                        rows={3}
+                        placeholder="Share your thoughts or offer help..."
+                        value={replyContent}
+                        onChange={(e) => setReplyContent(e.target.value)}
+                      />
+                      <div className="flex justify-end">
+                        <Button
+                          size="sm"
+                          className="bg-[#002A5C] text-white"
+                          onClick={handleSubmitReply}
+                          disabled={isReplying || !replyContent.trim()}
+                        >
+                          {isReplying ? 'Sending…' : 'Reply'}
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </>
@@ -879,16 +1144,17 @@ export default function FeedPage() {
                 <div className="flex flex-wrap gap-2">
                   {visibilityOptions.map((opt) => {
                     const Icon = opt.icon;
+                    const isSelected = editVisibilityGroups.includes(opt.value);
                     return (
                       <Badge
                         key={opt.value}
-                        variant={editVisibility === opt.value ? "default" : "outline"}
+                        variant={isSelected ? "default" : "outline"}
                         className={`cursor-pointer text-xs gap-1 ${
-                          editVisibility === opt.value
+                          isSelected
                             ? "bg-[#002A5C] text-white"
                             : "hover:bg-gray-100"
                         }`}
-                        onClick={() => setEditVisibility(opt.value)}
+                        onClick={() => toggleAudience(opt.value, setEditVisibilityGroups)}
                       >
                         <Icon className="h-3 w-3" />
                         {opt.label}

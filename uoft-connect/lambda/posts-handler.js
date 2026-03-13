@@ -28,6 +28,15 @@ function buildReply(authorId, authorDetails, content) {
   };
 }
 
+const INSTRUCTOR_DOMAINS = ["@utoronto.ca", "@cs.toronto.edu"];
+
+function isInstructorEmail(email = "") {
+  const lowerEmail = email.toLowerCase().trim();
+  if (!lowerEmail) return false;
+  if (lowerEmail.endsWith("@mail.utoronto.ca")) return false;
+  return INSTRUCTOR_DOMAINS.some((domain) => lowerEmail.endsWith(domain));
+}
+
 const ALLOWED_USER_FIELDS = [
   "name",
   "role",
@@ -38,6 +47,7 @@ const ALLOWED_USER_FIELDS = [
   "lookingFor",
   "linkedin",
   "github",
+  "location",
 ];
 
 const sanitizeUserUpdates = (updates) => {
@@ -236,6 +246,14 @@ exports.handler = async (event) => {
       return await unlikePost(postId, effectiveUserId);
     }
 
+    if (path.match(/^\/posts\/[^/]+\/replies$/) && method === "POST") {
+      const authError = ensureAuthenticated(userId);
+      if (authError) return authError;
+      const postId = path.split("/")[2];
+      const body = JSON.parse(event.body || "{}");
+      return await addReply(postId, userId, userEmail, userName, body);
+    }
+
     if (path === "/conversations" && method === "GET") {
       const authError = ensureAuthenticated(userId);
       if (authError) return authError;
@@ -394,23 +412,43 @@ async function ensureUserProfile(userId, userEmail, userName) {
   );
 
   if (existing.Item) {
+    const existingEmail = existing.Item.email || userEmail || `${userId}@unknown.local`;
+    const desiredRole = isInstructorEmail(existingEmail)
+      ? "professor"
+      : existing.Item.role || "student";
+
+    if (existing.Item.role !== desiredRole) {
+      await docClient.send(
+        new PutCommand({
+          TableName: USERS_TABLE,
+          Item: {
+            ...existing.Item,
+            role: desiredRole,
+            updatedAt: new Date().toISOString().replace("T", " ").replace("Z", ""),
+          },
+        })
+      );
+    }
+
     return {
-      name: existing.Item.name || existing.Item.email?.split("@")[0] || userName || "Unknown",
-      email: existing.Item.email || userEmail || `${userId}@unknown.local`,
-      role: existing.Item.role || "student",
+      name: existing.Item.name || existingEmail.split("@")[0] || userName || "Unknown",
+      email: existingEmail,
+      role: desiredRole,
       department: existing.Item.department || existing.Item.faculty || "Unknown",
     };
   }
 
   const finalEmail = userEmail && userEmail.trim() ? userEmail : `${userId}@unknown.local`;
   const finalName = userName && userName.trim() ? userName : (userEmail ? userEmail.split("@")[0] : userId);
+  const role = isInstructorEmail(finalEmail) ? "professor" : "student";
 
   const newUser = {
     userId,
     email: finalEmail,
     name: finalName,
-    role: "student",
+    role,
     department: "Unknown",
+    location: "Toronto, ON",
     interests: [],
     lookingFor: [],
     createdAt: new Date().toISOString().replace("T", " ").replace("Z", ""),
@@ -518,6 +556,7 @@ async function getOrCreateUser(userId, email, name) {
     name,
     role: "student",
     department: "",
+    location: "Toronto, ON",
     year: "",
     bio: "",
     interests: [],
@@ -596,6 +635,62 @@ async function updatePost(postId, userId, updates) {
   };
 }
 
+async function addReply(postId, userId, userEmail, userName, body) {
+  if (!body?.content || !body.content.trim()) {
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({ error: "Reply content is required" }),
+    };
+  }
+
+  const existing = await docClient.send(
+    new GetCommand({
+      TableName: POSTS_TABLE,
+      Key: { postId },
+    })
+  );
+
+  if (!existing.Item) {
+    return {
+      statusCode: 404,
+      headers,
+      body: JSON.stringify({ error: "Post not found" }),
+    };
+  }
+
+  const authorDetails = await ensureUserProfile(userId, userEmail, userName);
+  const reply = buildReply(userId, {
+    id: userId,
+    name: authorDetails.name,
+    email: authorDetails.email,
+    role: authorDetails.role,
+    department: authorDetails.department,
+  }, body.content);
+
+  const repliesList = existing.Item.repliesList || [];
+
+  const updatedPost = {
+    ...existing.Item,
+    repliesList: [...repliesList, reply],
+    replies: (existing.Item.replies || repliesList.length) + 1,
+    updatedAt: new Date().toISOString().replace("T", " ").replace("Z", ""),
+  };
+
+  await docClient.send(
+    new PutCommand({
+      TableName: POSTS_TABLE,
+      Item: updatedPost,
+    })
+  );
+
+  return {
+    statusCode: 200,
+    headers,
+    body: JSON.stringify({ post: updatedPost }),
+  };
+}
+
 async function updateUser(userId, updates) {
   const result = await docClient.send(
     new GetCommand({
@@ -612,20 +707,22 @@ async function updateUser(userId, updates) {
     };
   }
 
-  const sanitizedUpdates = sanitizeUserUpdates(updates);
+  const filteredUpdates = Object.keys(updates)
+    .filter((key) => ALLOWED_USER_FIELDS.includes(key))
+    .reduce((acc, key) => {
+      acc[key] = updates[key];
+      return acc;
+    }, {});
 
-  if (Object.keys(sanitizedUpdates).length === 0) {
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({ user: result.Item }),
-    };
+  // Ensure instructors keep professor role even if UI sends student
+  const email = filteredUpdates.email || result.Item.email;
+  if (email && isInstructorEmail(email)) {
+    filteredUpdates.role = "professor";
   }
 
   const updatedUser = {
     ...result.Item,
-    ...sanitizedUpdates,
-    userId, // Ensure userId can't be changed
+    ...filteredUpdates,
     updatedAt: new Date().toISOString().replace("T", " ").replace("Z", ""),
   };
 
@@ -760,19 +857,19 @@ async function unlikePost(postId, userId) {
 
 async function listConversations(userId) {
   const result = await docClient.send(
-    new QueryCommand({
+    new ScanCommand({
       TableName: MESSAGES_TABLE,
-      IndexName: "byParticipant",
-      KeyConditionExpression: "participantId = :userId",
+      FilterExpression: "contains(participants, :userId)",
       ExpressionAttributeValues: {
         ":userId": userId,
       },
-      ScanIndexForward: false,
-      Limit: 50,
+      Limit: 200,
     })
   );
 
-  const conversations = result.Items || [];
+  const conversations = (result.Items || []).sort(
+    (a, b) => new Date(b.lastMessageTime || 0) - new Date(a.lastMessageTime || 0)
+  );
   
   const userIds = [...new Set(conversations.flatMap(c => c.participants || []))].filter(id => id !== userId);
   
@@ -840,10 +937,36 @@ async function getConversation(conversationId, userId) {
     };
   }
 
+  // Enrich with other participant's profile
+  const otherParticipantId = conversation.participants?.find(p => p !== userId);
+  let otherParticipant = null;
+  
+  if (otherParticipantId) {
+    const userResult = await docClient.send(
+      new GetCommand({
+        TableName: USERS_TABLE,
+        Key: { userId: otherParticipantId },
+      })
+    );
+    if (userResult.Item) {
+      otherParticipant = {
+        userId: userResult.Item.userId,
+        name: userResult.Item.name,
+        email: userResult.Item.email,
+        role: userResult.Item.role,
+      };
+    }
+  }
+
   return {
     statusCode: 200,
     headers,
-    body: JSON.stringify({ conversation }),
+    body: JSON.stringify({ 
+      conversation: {
+        ...conversation,
+        otherParticipant,
+      }
+    }),
   };
 }
 
@@ -857,6 +980,9 @@ async function sendMessage(body, userId, userEmail, userName) {
       body: JSON.stringify({ error: "Message content is required" }),
     };
   }
+
+  // Ensure sender profile exists and get accurate data
+  const senderProfile = await ensureUserProfile(userId, userEmail, userName);
 
   const conversationId = existingConvId || `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -875,7 +1001,7 @@ async function sendMessage(body, userId, userEmail, userName) {
   const newMessage = {
     messageId,
     senderId: userId,
-    senderName: userName || userEmail?.split("@")[0] || "Unknown",
+    senderName: senderProfile.name,
     content: content.trim(),
     timestamp: now,
     read: false,

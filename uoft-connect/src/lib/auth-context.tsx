@@ -24,6 +24,7 @@ interface User {
   email: string;
   userId?: string;
   name?: string;
+  isInstructor?: boolean;
 }
 
 interface AuthContextType {
@@ -48,17 +49,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkUser();
   }, []);
 
+  const isInstructor = (email: string) => {
+    return (email.endsWith('@utoronto.ca') && !email.endsWith('@mail.utoronto.ca')) || email.endsWith('@cs.toronto.edu');
+  };
+
   async function checkUser() {
     try {
       const currentUser = await getCurrentUser();
       const attributes = await fetchUserAttributes();
       const derivedUserId =
         attributes.sub || currentUser.userId || currentUser.username;
+      const email = attributes.email || "";
       setUser({
         username: currentUser.username,
         userId: derivedUserId,
-        email: attributes.email || "",
+        email,
         name: attributes.name || currentUser.username,
+        isInstructor: isInstructor(email),
       });
     } catch {
       setUser(null);

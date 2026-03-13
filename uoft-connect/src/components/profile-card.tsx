@@ -4,7 +4,7 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MessageCircle, Sparkles, GraduationCap, Briefcase, BookOpen, Award } from "lucide-react";
+import { MessageCircle, Sparkles, GraduationCap, Briefcase, BookOpen, Award, CheckCircle } from "lucide-react";
 import type { UserProfile } from "@/lib/mock-data";
 
 function getInitials(name: string) {
@@ -25,12 +25,19 @@ const roleConfig = {
 export function ProfileCard({
   user,
   matchScore,
+  onConnect,
+  onViewProfile,
 }: {
   user: UserProfile;
   matchScore?: number;
+  onConnect?: (user: UserProfile) => void;
+  onViewProfile?: (user: UserProfile) => void;
 }) {
   const config = roleConfig[user.role];
   const Icon = config.icon;
+  
+  // Check if user is verified instructor (based on email domain)
+  const isInstructor = (user.email?.endsWith('@utoronto.ca') && !user.email?.endsWith('@mail.utoronto.ca')) || user.email?.endsWith('@cs.toronto.edu');
 
   return (
     <Card className="group relative overflow-hidden transition-all hover:shadow-lg hover:-translate-y-0.5">
@@ -47,6 +54,12 @@ export function ProfileCard({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <span className="font-semibold text-sm truncate">{user.name}</span>
+              {isInstructor && (
+                <Badge className="bg-[#002A5C] text-white text-[10px] px-1.5 py-0 gap-1">
+                  <CheckCircle className="h-2.5 w-2.5" />
+                  Verified
+                </Badge>
+              )}
               {matchScore && (
                 <Badge className="bg-gradient-to-r from-[#002A5C] to-blue-500 text-white text-[10px] px-1.5 py-0 gap-0.5">
                   <Sparkles className="h-2.5 w-2.5" />
@@ -112,6 +125,7 @@ export function ProfileCard({
         <Button
           size="sm"
           className="flex-1 bg-[#002A5C] hover:bg-[#002A5C]/90 text-white text-xs h-8"
+          onClick={() => onConnect?.(user)}
         >
           <MessageCircle className="mr-1.5 h-3.5 w-3.5" />
           Connect
@@ -120,6 +134,7 @@ export function ProfileCard({
           variant="outline"
           size="sm"
           className="flex-1 text-xs h-8 border-[#002A5C]/20 text-[#002A5C] hover:bg-[#002A5C]/5"
+          onClick={() => onViewProfile?.(user)}
         >
           View Profile
         </Button>

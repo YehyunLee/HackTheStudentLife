@@ -29,6 +29,9 @@ type PostCardProps = {
   onDelete?: (post: Post) => void;
   onLike?: (post: Post) => void;
   onUnlike?: (post: Post) => void;
+  onReply?: (post: Post) => void;
+  onViewProfile?: (author: Post["author"]) => void;
+  onMessage?: (post: Post) => void;
 };
 
 const visibilityIcon = {
@@ -61,7 +64,19 @@ const roleBadge = {
 
 const FALLBACK_ROLE_CLASS = "bg-gray-100 text-gray-600";
 
-export function PostCard({ post, isOwnPost, isLiked, onView, onEdit, onDelete, onLike, onUnlike }: PostCardProps) {
+export function PostCard({
+  post,
+  isOwnPost,
+  isLiked,
+  onView,
+  onEdit,
+  onDelete,
+  onLike,
+  onUnlike,
+  onReply,
+  onViewProfile,
+  onMessage,
+}: PostCardProps) {
   const authorRole = (post.author.role || "student") as keyof typeof roleBadge;
   const roleClass = roleBadge[authorRole] ?? FALLBACK_ROLE_CLASS;
 
@@ -77,7 +92,11 @@ export function PostCard({ post, isOwnPost, isLiked, onView, onEdit, onDelete, o
     <Card className="transition-shadow hover:shadow-md">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
+          <button
+            type="button"
+            className="flex items-center gap-3 text-left"
+            onClick={() => onViewProfile?.(post.author)}
+          >
             <Avatar className="h-10 w-10 border-2 border-[#002A5C]/10">
               <AvatarFallback className="bg-[#002A5C]/5 text-[#002A5C] text-sm font-semibold">
                 {getInitials(post.author.name)}
@@ -99,7 +118,7 @@ export function PostCard({ post, isOwnPost, isLiked, onView, onEdit, onDelete, o
                 <span>{post.createdAt}</span>
               </div>
             </div>
-          </div>
+          </button>
           <div className="flex items-center gap-1">
             <Badge variant="outline" className={`text-[10px] ${typeColors[post.type]}`}>
               {post.type === "looking-for" ? "Looking For" : post.type === "offering" ? "Offering" : "Discussion"}
@@ -123,7 +142,7 @@ export function PostCard({ post, isOwnPost, isLiked, onView, onEdit, onDelete, o
       </CardContent>
       <CardFooter className="border-t pt-3">
         <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex gap-1">
+          <div className="flex gap-1 flex-wrap">
             <Button 
               variant="ghost" 
               size="sm" 
@@ -133,7 +152,12 @@ export function PostCard({ post, isOwnPost, isLiked, onView, onEdit, onDelete, o
               <Heart className={`mr-1 h-3.5 w-3.5 ${isLiked ? 'fill-current' : ''}`} />
               <span className="text-xs">{post.likes}</span>
             </Button>
-            <Button variant="ghost" size="sm" className="text-gray-500 hover:text-[#002A5C] h-8 px-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-gray-500 hover:text-[#002A5C] h-8 px-2"
+              onClick={() => (onReply ? onReply(post) : onView?.(post))}
+            >
               <MessageCircle className="mr-1 h-3.5 w-3.5" />
               <span className="text-xs">{post.replies}</span>
             </Button>
@@ -151,6 +175,17 @@ export function PostCard({ post, isOwnPost, isLiked, onView, onEdit, onDelete, o
               >
                 <Eye className="mr-1 h-3.5 w-3.5" />
                 <span className="text-xs">View</span>
+              </Button>
+            )}
+            {onMessage && !isOwnPost && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-gray-500 hover:text-[#002A5C] h-8 px-2"
+                onClick={() => onMessage(post)}
+              >
+                <MessageCircle className="mr-1 h-3.5 w-3.5" />
+                <span className="text-xs">Message</span>
               </Button>
             )}
             {isOwnPost && (

@@ -1,0 +1,23 @@
+{
+  "dev": {
+    "awscloudformation": {
+      "AuthRoleName": "amplify-uoftconnect-dev-fb963-authRole",
+      "UnauthRoleArn": "arn:aws:iam::182061046089:role/amplify-uoftconnect-dev-fb963-unauthRole",
+      "AuthRoleArn": "arn:aws:iam::182061046089:role/amplify-uoftconnect-dev-fb963-authRole",
+      "Region": "us-west-2",
+      "DeploymentBucketName": "amplify-uoftconnect-dev-fb963-deployment",
+      "UnauthRoleName": "amplify-uoftconnect-dev-fb963-unauthRole",
+      "StackName": "amplify-uoftconnect-dev-fb963",
+      "StackId": "arn:aws:cloudformation:us-west-2:182061046089:stack/amplify-uoftconnect-dev-fb963/6b11e3d0-1f08-11f1-8f0d-0a576d8919b7",
+      "AmplifyAppId": "d2370k4pzxp60a"
+    },
+    "categories": {
+      "hosting": {
+        "amplifyhosting": {
+          "appId": "d2370k4pzxp60a",
+          "type": "manual"
+        }
+      }
+    }
+  }
+}
