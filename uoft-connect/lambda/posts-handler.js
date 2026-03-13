@@ -366,6 +366,7 @@ async function createPost(body, userId, userEmail, userName) {
     visibility: body.visibility || "everyone",
     likes: 0,
     replies: 0,
+    repliesList: [],
     createdAt: now,
     updatedAt: now,
   };

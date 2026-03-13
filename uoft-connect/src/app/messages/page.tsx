@@ -163,6 +163,14 @@ export default function MessagesPage() {
   }, [loadConversations]);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
+    const interval = setInterval(() => {
+      loadConversations();
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated, loadConversations]);
+
+  useEffect(() => {
     const interval = setInterval(() => {
       if (isAuthenticated && selectedConversation) {
         loadConversation(selectedConversation.conversationId);

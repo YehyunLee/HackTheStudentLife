@@ -151,6 +151,7 @@ function SwipeView({
 
   const prevIndex = (currentIndex - 1 + posts.length) % posts.length;
   const nextIndex = (currentIndex + 1) % posts.length;
+  const swipeProgress = slideWidth ? dragDelta / slideWidth : 0;
 
   useEffect(() => {
     const updateSizes = () => {
@@ -179,78 +180,97 @@ function SwipeView({
   }, [goNext, goPrev, onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black">
-      {/* Close button */}
-      <button
-        onClick={onClose}
-        className="absolute top-4 right-4 z-50 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-      >
-        <X className="h-6 w-6 text-white" />
-      </button>
-
-      {/* Progress bar */}
-      <div className="absolute top-4 left-4 right-16 flex gap-1 z-40">
-        {posts.map((_, idx) => (
-          <div
-            key={idx}
-            className={`h-1 flex-1 rounded-full transition-colors ${
-              idx === currentIndex
-                ? "bg-white"
-                : idx < currentIndex
-                ? "bg-white/60"
-                : "bg-white/20"
-            }`}
-          />
-        ))}
-      </div>
-
-      {/* Main content */}
-      <div
-        ref={containerRef}
-        className="h-full flex items-center justify-center px-4 cursor-grab active:cursor-grabbing"
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-      >
-        {/* Left arrow */}
+    <div className="fixed inset-0 z-50 bg-[#030712]">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(59,130,246,0.35),transparent_55%),radial-gradient(circle_at_80%_0%,rgba(236,72,153,0.25),transparent_45%)] blur-3xl opacity-70" />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/80" />
+      <div className="relative h-full">
+        {/* Close button */}
         <button
-          onClick={goPrev}
-          className={`absolute left-4 p-3 rounded-full bg-white/10 hover:bg-white/20 transition-all ${
-            currentIndex === 0 ? "opacity-30 cursor-not-allowed" : ""
-          }`}
-          disabled={currentIndex === 0}
+          onClick={onClose}
+          className="absolute top-4 right-4 z-50 p-2 rounded-full bg-white/10 backdrop-blur-md hover:bg-white/20 transition-colors"
         >
-          <ChevronLeft className="h-6 w-6 text-white" />
+          <X className="h-6 w-6 text-white" />
         </button>
 
-        {/* Story carousel (shows adjacent stories while dragging) */}
-        <div className="w-full max-w-md mx-auto overflow-hidden">
-          <div
-            className="flex w-full"
-            style={{
-              transform:
-                isDragging || isTransitioning
-                  ? `translateX(calc(-100% + ${dragDelta}px))`
-                  : "translateX(-100%)",
-              transition: isDragging
-                ? "none"
-                : isTransitioning
-                ? "transform 200ms ease"
-                : "none",
-              touchAction: "pan-y",
-            }}
+        {/* Progress bar */}
+        <div className="absolute top-4 left-4 right-16 flex gap-1 z-40">
+          {posts.map((_, idx) => (
+            <div
+              key={idx}
+              className={`h-1 flex-1 rounded-full overflow-hidden bg-white/10`}
+            >
+              <span
+                className={`block h-full transition-all ${
+                  idx === currentIndex
+                    ? "bg-gradient-to-r from-sky-200 to-white"
+                    : idx < currentIndex
+                    ? "bg-white/60"
+                    : "bg-white/5"
+                }`}
+              />
+            </div>
+          ))}
+        </div>
+
+        {/* Main content */}
+        <div
+          ref={containerRef}
+          className="h-full flex items-center justify-center px-4 cursor-grab active:cursor-grabbing"
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+        >
+          {/* Left arrow */}
+          <button
+            onClick={goPrev}
+            className={`absolute left-4 p-3 rounded-full bg-white/10 hover:bg-white/20 transition-all ${
+              currentIndex === 0 ? "opacity-30 cursor-not-allowed" : ""
+            }`}
+            disabled={currentIndex === 0}
           >
-            {[prevIndex, currentIndex, nextIndex].map((index) => {
-              const post = posts[index];
-              const isCurrent = index === currentIndex;
-              return (
-                <div key={index} className="w-full flex-none min-w-0">
-                  <div
-                    className={`bg-linear-to-br from-[#002A5C] to-[#1a5fb4] rounded-2xl p-6 min-h-[70vh] flex flex-col select-none ${
-                      isCurrent ? "" : "opacity-70"
-                    }`}
-                  >
+            <ChevronLeft className="h-6 w-6 text-white" />
+          </button>
+
+          {/* Story carousel (shows adjacent stories while dragging) */}
+          <div className="w-full max-w-2xl mx-auto overflow-visible" style={{ perspective: "1400px" }}>
+            <div
+              className="flex w-full"
+              style={{
+                transform:
+                  isDragging || isTransitioning
+                    ? `translateX(calc(-100% + ${dragDelta}px))`
+                    : "translateX(-100%)",
+                transition: isDragging
+                  ? "none"
+                  : isTransitioning
+                  ? "transform 200ms ease"
+                  : "none",
+                touchAction: "pan-y",
+                transformStyle: "preserve-3d",
+              }}
+            >
+              {[prevIndex, currentIndex, nextIndex].map((index) => {
+                const post = posts[index];
+                const isCurrent = index === currentIndex;
+                const position = index === currentIndex ? "current" : index === nextIndex ? "next" : "prev";
+                const tilt = isCurrent ? swipeProgress * 12 : position === "next" ? -8 : 8;
+                const scale = isCurrent ? 1 : 0.94;
+                const translateY = isCurrent ? 0 : 12;
+                const depth = isCurrent ? 0 : -60;
+                return (
+                  <div key={index} className="w-full flex-none min-w-0">
+                    <div
+                      className={`rounded-[32px] p-6 min-h-[72vh] flex flex-col select-none border border-white/15 backdrop-blur-sm ${
+                        isCurrent ? "bg-gradient-to-br from-[#143874]/90 via-[#1d4ed8]/80 to-[#38bdf8]/70 shadow-[0_35px_80px_rgba(3,7,18,0.55)]" : "bg-gradient-to-br from-white/10 to-white/5 shadow-[0_25px_60px_rgba(3,7,18,0.35)] opacity-80"
+                      }`}
+                      style={{
+                        transform: `perspective(1400px) translateZ(${depth}px) rotateY(${tilt}deg) scale(${scale}) translateY(${translateY}px)`,
+                        transition: isDragging
+                          ? "transform 0.12s ease-out"
+                          : "transform 320ms cubic-bezier(.22,.61,.36,1)",
+                      }}
+                    >
                     {/* Author header */}
                     <div className="flex items-center gap-3 mb-6">
                       <Avatar className="h-12 w-12 border-2 border-white/30">
@@ -306,7 +326,7 @@ function SwipeView({
                     </div>
 
                     {/* Actions */}
-                    <div className="flex items-center justify-around mt-6 pt-4 border-t border-white/10">
+                    <div className="flex items-center justify-around mt-6 pt-4 border-t border-white/15">
                       <button className="flex flex-col items-center gap-1 text-white/80 hover:text-white transition-colors">
                         <Heart className="h-6 w-6" />
                         <span className="text-xs">{post.likes}</span>
@@ -334,19 +354,20 @@ function SwipeView({
           </div>
         </div>
 
-        {/* Right arrow */}
-        <button
-          onClick={goNext}
-          className="absolute right-4 p-3 rounded-full bg-white/10 hover:bg-white/20 transition-all"
-        >
-          <ChevronRight className="h-6 w-6 text-white" />
-        </button>
-      </div>
+          {/* Right arrow */}
+          <button
+            onClick={goNext}
+            className="absolute right-4 p-3 rounded-full bg-white/10 hover:bg-white/20 transition-all"
+          >
+            <ChevronRight className="h-6 w-6 text-white" />
+          </button>
+        </div>
 
-      {/* Swipe hint */}
-      <p className="absolute bottom-4 left-0 right-0 text-center text-white/40 text-xs">
-        Swipe or use arrow keys to navigate · ESC to close
-      </p>
+        {/* Swipe hint */}
+        <p className="absolute bottom-4 left-0 right-0 text-center text-white/50 text-[11px] tracking-wide">
+          Swipe or use arrow keys to navigate · ESC to close
+        </p>
+      </div>
     </div>
   );
 }
@@ -390,6 +411,14 @@ export default function FeedPage() {
   useEffect(() => {
     loadPosts();
   }, [loadPosts]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const interval = setInterval(() => {
+      loadPosts();
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated, loadPosts]);
 
   const handleCreatePost = async () => {
     if (!newPost.trim() || !isAuthenticated) return;
