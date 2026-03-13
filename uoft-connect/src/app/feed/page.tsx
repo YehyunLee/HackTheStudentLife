@@ -130,7 +130,29 @@ function SwipeView({
   const [dragDelta, setDragDelta] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [slideWidth, setSlideWidth] = useState(0);
+  const [replyDialogOpen, setReplyDialogOpen] = useState(false);
+  const [replyContent, setReplyContent] = useState("");
+  const [isReplying, setIsReplying] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const handleReply = async () => {
+    const currentPost = posts[currentIndex];
+    if (!('postId' in currentPost) || !replyContent.trim()) return;
+    
+    setIsReplying(true);
+    try {
+      const updatedPost = await replyToPost(currentPost.postId, replyContent.trim());
+      // Update the post in the posts array
+      posts[currentIndex] = updatedPost;
+      setReplyContent("");
+      setReplyDialogOpen(false);
+    } catch (err) {
+      console.error('Failed to submit reply', err);
+      alert('Unable to add reply. Please try again.');
+    } finally {
+      setIsReplying(false);
+    }
+  };
 
   const goNext = useCallback(() => {
     setCurrentIndex((prev) => (prev + 1) % posts.length);
@@ -383,20 +405,29 @@ function SwipeView({
                     </div>
 
                     {/* Actions */}
-                    <div className="flex items-center justify-around mt-6 pt-4 border-t border-white/15">
+                    <div className="flex items-center justify-around mt-6 pt-4 border-t border-white/15 pointer-events-none">
                       <button
-                        className={`flex flex-col items-center gap-1 transition-colors ${liked ? "text-rose-300" : "text-white/80 hover:text-white"}`}
-                        onClick={handleStoryLike}
+                        className={`flex flex-col items-center gap-1 transition-colors pointer-events-auto ${liked ? "text-rose-300" : "text-white/80 hover:text-white"}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleStoryLike();
+                        }}
                         disabled={!('postId' in post)}
                       >
                         <Heart className={`h-6 w-6 ${liked ? "fill-current" : ""}`} />
                         <span className="text-xs">{post.likes}</span>
                       </button>
-                      <button className="flex flex-col items-center gap-1 text-white/80 hover:text-white transition-colors">
+                      <button 
+                        className="flex flex-col items-center gap-1 text-white/80 hover:text-white transition-colors pointer-events-auto"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setReplyDialogOpen(true);
+                        }}
+                      >
                         <MessageCircle className="h-6 w-6" />
                         <span className="text-xs">{post.replies}</span>
                       </button>
-                      <button className="flex flex-col items-center gap-1 text-white/80 hover:text-white transition-colors">
+                      <button className="flex flex-col items-center gap-1 text-white/80 hover:text-white transition-colors pointer-events-auto">
                         <Share2 className="h-6 w-6" />
                         <span className="text-xs">Share</span>
                       </button>
@@ -423,12 +454,48 @@ function SwipeView({
             <ChevronRight className="h-6 w-6 text-white" />
           </button>
         </div>
-
-        {/* Swipe hint */}
-        <p className="absolute bottom-4 left-0 right-0 text-center text-white/50 text-[11px] tracking-wide">
-          Swipe or use arrow keys to navigate · ESC to close
-        </p>
       </div>
+
+      {/* Reply Dialog */}
+      <Dialog open={replyDialogOpen} onOpenChange={setReplyDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Reply to Post</DialogTitle>
+            <DialogDescription>
+              Reply to {posts[currentIndex]?.author?.name}'s post
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="rounded-lg border p-3 bg-gray-50">
+              <p className="text-sm text-gray-700 whitespace-pre-line">
+                {posts[currentIndex]?.content}
+              </p>
+            </div>
+            <textarea
+              className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#002A5C]"
+              rows={4}
+              placeholder="Share your thoughts or offer help..."
+              value={replyContent}
+              onChange={(e) => setReplyContent(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setReplyDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-[#002A5C] text-white"
+              onClick={handleReply}
+              disabled={isReplying || !replyContent.trim() || !('postId' in posts[currentIndex])}
+            >
+              {isReplying ? 'Sending…' : 'Reply'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

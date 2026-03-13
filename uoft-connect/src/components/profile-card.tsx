@@ -4,7 +4,7 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MessageCircle, Sparkles, GraduationCap, Briefcase, BookOpen, Award } from "lucide-react";
+import { MessageCircle, Sparkles, GraduationCap, Briefcase, BookOpen, Award, CheckCircle } from "lucide-react";
 import type { UserProfile } from "@/lib/mock-data";
 
 function getInitials(name: string) {
@@ -35,6 +35,9 @@ export function ProfileCard({
 }) {
   const config = roleConfig[user.role];
   const Icon = config.icon;
+  
+  // Check if user is verified instructor (based on email domain)
+  const isInstructor = user.email?.endsWith('@utoronto.ca') || user.email?.endsWith('@cs.toronto.edu');
 
   return (
     <Card className="group relative overflow-hidden transition-all hover:shadow-lg hover:-translate-y-0.5">
@@ -51,6 +54,12 @@ export function ProfileCard({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <span className="font-semibold text-sm truncate">{user.name}</span>
+              {isInstructor && (
+                <Badge className="bg-[#002A5C] text-white text-[10px] px-1.5 py-0 gap-1">
+                  <CheckCircle className="h-2.5 w-2.5" />
+                  Verified
+                </Badge>
+              )}
               {matchScore && (
                 <Badge className="bg-gradient-to-r from-[#002A5C] to-blue-500 text-white text-[10px] px-1.5 py-0 gap-0.5">
                   <Sparkles className="h-2.5 w-2.5" />
