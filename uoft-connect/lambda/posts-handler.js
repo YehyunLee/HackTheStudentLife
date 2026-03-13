@@ -268,7 +268,7 @@ async function listPosts() {
 
 async function createPost(body, userId, userEmail, userName) {
   const postId = `post_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  const now = new Date().toISOString();
+  const now = new Date().toISOString().replace("T", " ").replace("Z", "");
 
   const authorDetails = await ensureUserProfile(userId, userEmail, userName);
 
@@ -334,8 +334,8 @@ async function ensureUserProfile(userId, userEmail, userName) {
     department: "Unknown",
     interests: [],
     lookingFor: [],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    createdAt: new Date().toISOString().replace("T", " ").replace("Z", ""),
+    updatedAt: new Date().toISOString().replace("T", " ").replace("Z", ""),
   };
 
   await docClient.send(
@@ -500,7 +500,7 @@ async function updatePost(postId, userId, updates) {
     ...existing.Item,
     ...sanitized,
     tags: sanitized.tags ?? existing.Item.tags,
-    updatedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString().replace("T", " ").replace("Z", ""),
   };
 
   await docClient.send(
@@ -547,7 +547,7 @@ async function updateUser(userId, updates) {
     ...result.Item,
     ...sanitizedUpdates,
     userId, // Ensure userId can't be changed
-    updatedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString().replace("T", " ").replace("Z", ""),
   };
 
   await docClient.send(

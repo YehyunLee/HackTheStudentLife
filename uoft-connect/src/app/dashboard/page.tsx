@@ -33,6 +33,15 @@ function getInitials(name: string) {
     .toUpperCase();
 }
 
+function formatDateTime(value?: string) {
+  if (!value) return "";
+  const localized = new Date(value);
+  if (Number.isNaN(localized.getTime())) {
+    // Fallback to simple cleanup if value isn't a valid date
+    return value.replace("T", " ").replace("Z", "");
+  }
+  return localized.toLocaleString(undefined, { hour12: false });
+}
 
 const upcomingEvents = [
   {
@@ -204,7 +213,10 @@ export default function DashboardPage() {
           {stats.map((stat) => {
             const Icon = stat.icon;
             return (
-              <Card key={stat.label} className="hover:shadow-md transition-shadow">
+              <Card
+                key={stat.label}
+                className="rounded-lg border border-gray-200 bg-white hover:shadow-md transition-shadow"
+              >
                 <CardContent className="p-5">
                   <div className="flex items-center justify-between">
                     <div
@@ -249,8 +261,11 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent className="space-y-1 pt-0">
                 {posts.slice(0, 3).map((post, idx) => (
-                  <div key={post.postId}>
-                    <div className="flex items-start gap-3 py-3">
+                  <div
+                    key={post.postId}
+                    className="rounded-lg border border-gray-200 bg-white p-4"
+                  >
+                    <div className="flex items-start gap-3">
                       <Avatar className="h-9 w-9 shrink-0">
                         <AvatarFallback className="bg-[#002A5C] text-white text-xs">
                           {getInitials(post.author.name)}
@@ -262,7 +277,7 @@ export default function DashboardPage() {
                             {post.author.name}
                           </span>
                           <span className="text-[10px] text-gray-400 shrink-0 ml-2">
-                            {post.createdAt}
+                            {formatDateTime(post.createdAt)}
                           </span>
                         </div>
                         <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
