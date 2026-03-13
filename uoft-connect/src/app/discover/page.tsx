@@ -375,21 +375,6 @@ export default function DiscoverPage() {
           )}
         </div>
 
-        {/* AI Match Banner */}
-        <div className="mb-6 rounded-xl bg-gradient-to-r from-[#002A5C] to-blue-600 p-5 text-white">
-          <div className="flex items-start gap-3">
-            <Sparkles className="h-6 w-6 shrink-0 text-yellow-300 mt-0.5" />
-            <div>
-              <h3 className="font-semibold">AI-Powered Matching</h3>
-              <p className="mt-1 text-sm text-blue-100">
-                Amazon Personalize analyzes your interests, goals, and activity
-                to surface the most relevant connections. Match scores show how
-                well someone aligns with your profile.
-              </p>
-            </div>
-          </div>
-        </div>
-
         {/* Instructor Posts */}
         {posts.length > 0 && (
           <div className="mb-8">

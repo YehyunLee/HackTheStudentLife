@@ -152,7 +152,7 @@ export default function Home() {
               {
                 icon: Search,
                 title: "Discover",
-                desc: "AI-powered matching finds professors, alumni, and peers aligned with your interests and career goals.",
+                desc: "Find professors, alumni, and peers aligned with your interests and career goals.",
                 step: "01",
               },
               {
@@ -198,14 +198,13 @@ export default function Home() {
               Enterprise-grade cloud infrastructure for a seamless experience
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
             {[
               { name: "Cognito", desc: "Auth & Identity" },
-              { name: "DynamoDB", desc: "Profile Storage" },
-              { name: "Personalize", desc: "AI Matching" },
-              { name: "AppSync", desc: "Real-time API" },
+              { name: "DynamoDB", desc: "Data Storage" },
+              { name: "Lambda", desc: "Backend API" },
+              { name: "API Gateway", desc: "REST API" },
               { name: "Amplify", desc: "Web Hosting" },
-              { name: "SES", desc: "Notifications" },
             ].map((service) => (
               <Card
                 key={service.name}
