@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PostCard } from "@/components/post-card";
 import { mockPosts } from "@/lib/mock-data";
-import { fetchPosts, createPost, updatePost, deletePost, likePost, unlikePost, type Post as ApiPost } from "@/lib/api";
+import { fetchPosts, createPost, updatePost, deletePost, likePost, unlikePost, replyToPost, type Post as ApiPost, type User as ApiUser } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import {
   PenSquare,
@@ -41,6 +41,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 const visibilityOptions: { value: "everyone" | "students" | "faculty" | "alumni"; label: string; icon: typeof Eye }[] = [
   { value: "everyone", label: "Everyone", icon: Eye },
@@ -61,7 +62,7 @@ const typeColors = {
   discussion: "bg-purple-100 text-purple-700",
 };
 
-type FeedPost = ApiPost | (typeof mockPosts)[number];
+type FeedPost = (ApiPost & { repliesList?: ApiPost["repliesList"] }) | (typeof mockPosts)[number];
 
 function getInitials(name: string) {
   return name
@@ -76,9 +77,17 @@ const getPostKey = (post: FeedPost) => ("postId" in post ? post.postId : post.id
 function SwipeView({
   posts,
   onClose,
+  onLikePost,
+  onUnlikePost,
+  onViewProfile,
+  isPostLiked,
 }: {
   posts: FeedPost[];
   onClose: () => void;
+  onLikePost?: (post: FeedPost) => void;
+  onUnlikePost?: (post: FeedPost) => void;
+  onViewProfile?: (author: FeedPost["author"]) => void;
+  isPostLiked?: (post: FeedPost) => boolean;
 }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [dragStartX, setDragStartX] = useState<number | null>(null);
@@ -258,6 +267,14 @@ function SwipeView({
                 const scale = isCurrent ? 1 : 0.94;
                 const translateY = isCurrent ? 0 : 12;
                 const depth = isCurrent ? 0 : -60;
+                const liked = isPostLiked?.(post) ?? false;
+                const handleStoryLike = () => {
+                  if (liked) {
+                    onUnlikePost?.(post);
+                  } else {
+                    onLikePost?.(post);
+                  }
+                };
                 return (
                   <div key={index} className="w-full flex-none min-w-0">
                     <div
@@ -272,7 +289,11 @@ function SwipeView({
                       }}
                     >
                     {/* Author header */}
-                    <div className="flex items-center gap-3 mb-6">
+                    <button
+                      type="button"
+                      className="flex items-center gap-3 mb-6 text-left"
+                      onClick={() => onViewProfile?.(post.author)}
+                    >
                       <Avatar className="h-12 w-12 border-2 border-white/30">
                         <AvatarFallback className="bg-white/20 text-white font-semibold">
                           {getInitials(post.author.name)}
@@ -286,7 +307,7 @@ function SwipeView({
                           {post.author.department} · {post.createdAt}
                         </p>
                       </div>
-                    </div>
+                    </button>
 
                     {/* Post type badge */}
                     <Badge
@@ -327,8 +348,12 @@ function SwipeView({
 
                     {/* Actions */}
                     <div className="flex items-center justify-around mt-6 pt-4 border-t border-white/15">
-                      <button className="flex flex-col items-center gap-1 text-white/80 hover:text-white transition-colors">
-                        <Heart className="h-6 w-6" />
+                      <button
+                        className={`flex flex-col items-center gap-1 transition-colors ${liked ? "text-rose-300" : "text-white/80 hover:text-white"}`}
+                        onClick={handleStoryLike}
+                        disabled={!('postId' in post)}
+                      >
+                        <Heart className={`h-6 w-6 ${liked ? "fill-current" : ""}`} />
                         <span className="text-xs">{post.likes}</span>
                       </button>
                       <button className="flex flex-col items-center gap-1 text-white/80 hover:text-white transition-colors">
@@ -391,6 +416,10 @@ export default function FeedPage() {
   const [editVisibility, setEditVisibility] = useState<"everyone" | "students" | "faculty" | "alumni">("everyone");
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [replyContent, setReplyContent] = useState("");
+  const [isReplying, setIsReplying] = useState(false);
+  const [profileSheetOpen, setProfileSheetOpen] = useState(false);
+  const [profileAuthor, setProfileAuthor] = useState<ApiUser | FeedPost["author"] | null>(null);
 
   const loadPosts = useCallback(async () => {
     if (!isAuthenticated) {
@@ -446,9 +475,28 @@ export default function FeedPage() {
     }
   };
 
+  const handleSubmitReply = async () => {
+    if (!isAuthenticated || !replyContent.trim() || !selectedPost || !('postId' in selectedPost)) {
+      return;
+    }
+    setIsReplying(true);
+    try {
+      const updatedPost = await replyToPost(selectedPost.postId, replyContent.trim());
+      setPosts((prev) => prev.map((p) => (getPostKey(p) === getPostKey(selectedPost) ? updatedPost : p)));
+      setSelectedPost(updatedPost);
+      setReplyContent("");
+    } catch (err) {
+      console.error('Failed to submit reply', err);
+      alert('Unable to add reply. Please try again.');
+    } finally {
+      setIsReplying(false);
+    }
+  };
+
   const handleViewPost = (post: FeedPost) => {
     setSelectedPost(post);
     setShowViewDialog(true);
+    setReplyContent("");
   };
 
   const handleEditPost = (post: FeedPost) => {
@@ -568,8 +616,22 @@ export default function FeedPage() {
     );
   }
 
+  const handleViewProfile = (author: FeedPost["author"]) => {
+    setProfileAuthor(author);
+    setProfileSheetOpen(true);
+  };
+
   if (viewMode === "swipe") {
-    return <SwipeView posts={displayPosts} onClose={() => setViewMode("feed")} />;
+    return (
+      <SwipeView
+        posts={displayPosts}
+        onClose={() => setViewMode("feed")}
+        onLikePost={handleLikePost}
+        onUnlikePost={handleUnlikePost}
+        onViewProfile={handleViewProfile}
+        isPostLiked={isPostLiked}
+      />
+    );
   }
 
   return (
@@ -747,6 +809,8 @@ export default function FeedPage() {
                   isOwnPost={isOwnPost(post)}
                   isLiked={isPostLiked(post)}
                   onView={handleViewPost}
+                  onViewProfile={handleViewProfile}
+                  onReply={handleViewPost}
                   onEdit={handleEditPost}
                   onDelete={handleDeletePost}
                   onLike={handleLikePost}
@@ -764,6 +828,7 @@ export default function FeedPage() {
                 isOwnPost={isOwnPost(post)}
                 isLiked={isPostLiked(post)}
                 onView={handleViewPost}
+                onReply={handleViewPost}
                 onEdit={handleEditPost}
                 onDelete={handleDeletePost}
                 onLike={handleLikePost}
@@ -789,6 +854,7 @@ export default function FeedPage() {
                 isOwnPost={isOwnPost(post)}
                 isLiked={isPostLiked(post)}
                 onView={handleViewPost}
+                onReply={handleViewPost}
                 onEdit={handleEditPost}
                 onDelete={handleDeletePost}
                 onLike={handleLikePost}
@@ -809,29 +875,53 @@ export default function FeedPage() {
                     Posted by {selectedPost.author.name} · {selectedPost.createdAt}
                   </DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Badge className={typeColors[selectedPost.type]}>
-                      {selectedPost.type === "looking-for" ? "Looking For" : selectedPost.type === "offering" ? "Offering" : "Discussion"}
-                    </Badge>
+                <div className="space-y-4 py-2">
+                  <div className="rounded-lg border p-4">
+                    <p className="text-sm text-gray-700 whitespace-pre-line">{selectedPost.content}</p>
                   </div>
-                  <p className="text-sm leading-relaxed">{selectedPost.content}</p>
-                  {selectedPost.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {selectedPost.tags.map((tag) => (
-                        <Badge key={tag} variant="secondary" className="text-xs">
-                          #{tag}
-                        </Badge>
-                      ))}
+                  <div className="rounded-lg border p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-semibold text-sm text-gray-900">
+                        Replies ({selectedPost.replies || selectedPost.repliesList?.length || 0})
+                      </h4>
+                      <span className="text-xs text-gray-500">Newest first</span>
                     </div>
-                  )}
-                  <div className="flex items-center gap-4 text-sm text-gray-500">
-                    <span className="flex items-center gap-1">
-                      <Heart className="h-4 w-4" /> {selectedPost.likes}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <MessageCircle className="h-4 w-4" /> {selectedPost.replies}
-                    </span>
+                    {Array.isArray(selectedPost.repliesList) && selectedPost.repliesList.length > 0 ? (
+                      <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+                        {[...selectedPost.repliesList]
+                          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                          .map((reply) => (
+                            <div key={reply.replyId} className="rounded-md border border-gray-100 p-3 bg-gray-50">
+                              <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                                <span className="font-medium text-gray-700">{reply.author.name}</span>
+                                <span>{new Date(reply.createdAt).toLocaleString()}</span>
+                              </div>
+                              <p className="text-sm text-gray-800 whitespace-pre-line">{reply.content}</p>
+                            </div>
+                          ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">No replies yet. Be the first to respond.</p>
+                    )}
+                    <div className="mt-3 flex flex-col gap-2">
+                      <textarea
+                        className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#002A5C]"
+                        rows={3}
+                        placeholder="Share your thoughts or offer help..."
+                        value={replyContent}
+                        onChange={(e) => setReplyContent(e.target.value)}
+                      />
+                      <div className="flex justify-end">
+                        <Button
+                          size="sm"
+                          className="bg-[#002A5C] text-white"
+                          onClick={handleSubmitReply}
+                          disabled={isReplying || !replyContent.trim()}
+                        >
+                          {isReplying ? 'Sending…' : 'Reply'}
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </>

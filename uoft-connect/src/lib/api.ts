@@ -37,8 +37,23 @@ export interface Post {
   likes: number;
   likedBy?: string[];
   replies: number;
+  repliesList?: Reply[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface Reply {
+  replyId: string;
+  authorId: string;
+  author: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    department: string;
+  };
+  content: string;
+  createdAt: string;
 }
 
 export interface User {
@@ -284,6 +299,24 @@ export async function fetchConversation(conversationId: string): Promise<Convers
   
   const data = await response.json();
   return data.conversation;
+}
+
+export async function replyToPost(postId: string, content: string): Promise<Post> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${API_BASE_URL}/posts/${postId}/replies`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ content }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('replyToPost error:', response.status, errorText);
+    throw new Error(`Failed to reply: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data.post;
 }
 
 export async function sendMessage(params: {

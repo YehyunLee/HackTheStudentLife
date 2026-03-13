@@ -236,6 +236,14 @@ exports.handler = async (event) => {
       return await unlikePost(postId, effectiveUserId);
     }
 
+    if (path.match(/^\/posts\/[^/]+\/replies$/) && method === "POST") {
+      const authError = ensureAuthenticated(userId);
+      if (authError) return authError;
+      const postId = path.split("/")[2];
+      const body = JSON.parse(event.body || "{}");
+      return await addReply(postId, userId, userEmail, userName, body);
+    }
+
     if (path === "/conversations" && method === "GET") {
       const authError = ensureAuthenticated(userId);
       if (authError) return authError;
@@ -579,6 +587,62 @@ async function updatePost(postId, userId, updates) {
     ...existing.Item,
     ...sanitized,
     tags: sanitized.tags ?? existing.Item.tags,
+    updatedAt: new Date().toISOString().replace("T", " ").replace("Z", ""),
+  };
+
+  await docClient.send(
+    new PutCommand({
+      TableName: POSTS_TABLE,
+      Item: updatedPost,
+    })
+  );
+
+  return {
+    statusCode: 200,
+    headers,
+    body: JSON.stringify({ post: updatedPost }),
+  };
+}
+
+async function addReply(postId, userId, userEmail, userName, body) {
+  if (!body?.content || !body.content.trim()) {
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({ error: "Reply content is required" }),
+    };
+  }
+
+  const existing = await docClient.send(
+    new GetCommand({
+      TableName: POSTS_TABLE,
+      Key: { postId },
+    })
+  );
+
+  if (!existing.Item) {
+    return {
+      statusCode: 404,
+      headers,
+      body: JSON.stringify({ error: "Post not found" }),
+    };
+  }
+
+  const authorDetails = await ensureUserProfile(userId, userEmail, userName);
+  const reply = buildReply(userId, {
+    id: userId,
+    name: authorDetails.name,
+    email: authorDetails.email,
+    role: authorDetails.role,
+    department: authorDetails.department,
+  }, body.content);
+
+  const repliesList = existing.Item.repliesList || [];
+
+  const updatedPost = {
+    ...existing.Item,
+    repliesList: [...repliesList, reply],
+    replies: (existing.Item.replies || repliesList.length) + 1,
     updatedAt: new Date().toISOString().replace("T", " ").replace("Z", ""),
   };
 
