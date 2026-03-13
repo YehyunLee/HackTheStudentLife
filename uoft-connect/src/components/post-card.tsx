@@ -63,7 +63,7 @@ export function PostCard({ post, isOwnPost, onView, onEdit, onDelete }: PostCard
   const roleClass = roleBadge[authorRole] ?? FALLBACK_ROLE_CLASS;
 
   return (
-    <Card className="transition-shadow hover:shadow-md">
+    <Card className="bg-white border border-gray-200 rounded-xl transition-shadow hover:shadow-md hover:bg-gray-50">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
