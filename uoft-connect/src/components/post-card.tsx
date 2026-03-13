@@ -4,8 +4,32 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Heart, MessageCircle, Share2, Eye, Lock, Users, GraduationCap } from "lucide-react";
-import type { Post } from "@/lib/mock-data";
+import {
+  Heart,
+  MessageCircle,
+  Share2,
+  Eye,
+  Lock,
+  Users,
+  GraduationCap,
+  Pencil,
+  Trash2,
+} from "lucide-react";
+import type { Post as MockPost } from "@/lib/mock-data";
+import type { Post as ApiPost } from "@/lib/api";
+
+type Post = MockPost | ApiPost;
+
+type PostCardProps = {
+  post: Post;
+  isOwnPost?: boolean;
+  isLiked?: boolean;
+  onView?: (post: Post) => void;
+  onEdit?: (post: Post) => void;
+  onDelete?: (post: Post) => void;
+  onLike?: (post: Post) => void;
+  onUnlike?: (post: Post) => void;
+};
 
 const visibilityIcon = {
   everyone: <Eye className="h-3 w-3" />,
@@ -33,9 +57,22 @@ const roleBadge = {
   alumni: "bg-amber-100 text-amber-700",
   professor: "bg-emerald-100 text-emerald-700",
   mentor: "bg-violet-100 text-violet-700",
-};
+} as const;
 
-export function PostCard({ post }: { post: Post }) {
+const FALLBACK_ROLE_CLASS = "bg-gray-100 text-gray-600";
+
+export function PostCard({ post, isOwnPost, isLiked, onView, onEdit, onDelete, onLike, onUnlike }: PostCardProps) {
+  const authorRole = (post.author.role || "student") as keyof typeof roleBadge;
+  const roleClass = roleBadge[authorRole] ?? FALLBACK_ROLE_CLASS;
+
+  const handleLikeClick = () => {
+    if (isLiked && onUnlike) {
+      onUnlike(post);
+    } else if (!isLiked && onLike) {
+      onLike(post);
+    }
+  };
+
   return (
     <Card className="transition-shadow hover:shadow-md">
       <CardHeader className="pb-3">
@@ -51,7 +88,7 @@ export function PostCard({ post }: { post: Post }) {
                 <span className="font-semibold text-sm">{post.author.name}</span>
                 <Badge
                   variant="secondary"
-                  className={`text-[10px] px-1.5 py-0 ${roleBadge[post.author.role]}`}
+                  className={`text-[10px] px-1.5 py-0 ${roleClass}`}
                 >
                   {post.author.role}
                 </Badge>
@@ -85,10 +122,15 @@ export function PostCard({ post }: { post: Post }) {
         </div>
       </CardContent>
       <CardFooter className="border-t pt-3">
-        <div className="flex w-full items-center justify-between">
+        <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex gap-1">
-            <Button variant="ghost" size="sm" className="text-gray-500 hover:text-red-500 h-8 px-2">
-              <Heart className="mr-1 h-3.5 w-3.5" />
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className={`h-8 px-2 ${isLiked ? 'text-red-500' : 'text-gray-500 hover:text-red-500'}`}
+              onClick={handleLikeClick}
+            >
+              <Heart className={`mr-1 h-3.5 w-3.5 ${isLiked ? 'fill-current' : ''}`} />
               <span className="text-xs">{post.likes}</span>
             </Button>
             <Button variant="ghost" size="sm" className="text-gray-500 hover:text-[#002A5C] h-8 px-2">
@@ -98,6 +140,41 @@ export function PostCard({ post }: { post: Post }) {
             <Button variant="ghost" size="sm" className="text-gray-500 hover:text-[#002A5C] h-8 px-2">
               <Share2 className="h-3.5 w-3.5" />
             </Button>
+          </div>
+          <div className="flex gap-1">
+            {onView && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-gray-500 hover:text-[#002A5C] h-8 px-2"
+                onClick={() => onView(post)}
+              >
+                <Eye className="mr-1 h-3.5 w-3.5" />
+                <span className="text-xs">View</span>
+              </Button>
+            )}
+            {isOwnPost && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-gray-500 hover:text-[#002A5C] h-8 px-2"
+                  onClick={() => onEdit?.(post)}
+                >
+                  <Pencil className="mr-1 h-3.5 w-3.5" />
+                  <span className="text-xs">Edit</span>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-gray-500 hover:text-red-500 h-8 px-2"
+                  onClick={() => onDelete?.(post)}
+                >
+                  <Trash2 className="mr-1 h-3.5 w-3.5" />
+                  <span className="text-xs">Delete</span>
+                </Button>
+              </>
+            )}
           </div>
           <div className="flex items-center gap-1 text-xs text-gray-400">
             {visibilityIcon[post.visibility]}

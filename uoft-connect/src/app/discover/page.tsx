@@ -4,8 +4,9 @@ import Link from "next/link";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/auth-context";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   mockResearchGroups,
   mockResearchPrograms,
@@ -30,6 +31,7 @@ import {
 } from "lucide-react";
 
 export default function DiscoverPage() {
+  const { isAuthenticated } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
 
   const filteredResearchGroups = mockResearchGroups.filter((group) =>
@@ -74,6 +76,26 @@ export default function DiscoverPage() {
     opp.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
     opp.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()))
   );
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <Card className="max-w-md w-full text-center p-8">
+          <CardContent className="space-y-4">
+            <h2 className="text-xl font-semibold text-[#002A5C]">Sign in to discover connections</h2>
+            <p className="text-sm text-gray-500">
+              Discover people who align with your interests once you log in with your UofT email.
+            </p>
+            <Link href="/login" className="block">
+              <Button className="w-full bg-[#002A5C] text-white hover:bg-[#002A5C]/90">
+                Go to Login
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

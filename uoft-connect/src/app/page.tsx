@@ -19,21 +19,22 @@ export default function Home() {
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-[#002A5C] via-[#003d82] to-[#1a5fb4] text-white">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PHBhdGggZD0iTTM2IDE4YzEuNjU2IDAgMy0xLjM0NCAzLTNzLTEuMzQ0LTMtMy0zLTMgMS4zNDQtMyAzIDEuMzQ0IDMgMyAzem0wIDMwYzEuNjU2IDAgMy0xLjM0NCAzLTNzLTEuMzQ0LTMtMy0zLTMgMS4zNDQtMyAzIDEuMzQ0IDMgMyAzek0xOCAxOGMxLjY1NiAwIDMtMS4zNDQgMy0zcy0xLjM0NC0zLTMtMy0zIDEuMzQ0LTMgMyAxLjM0NCAzIDMgM3ptMCAzMGMxLjY1NiAwIDMtMS4zNDQgMy0zcy0xLjM0NC0zLTMtMy0zIDEuMzQ0LTMgMyAxLjM0NCAzIDMgM3oiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-50" />
-        <div className="relative mx-auto max-w-7xl px-4 py-24 sm:px-6 sm:py-32 lg:py-40">
-          <div className="mx-auto max-w-3xl text-center">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-1.5 text-sm backdrop-blur-sm">
+      <section className="min-h-[60vh] pt-10 relative overflow-hidden bg-[url('../components/img/uoft-background.png')] bg-cover bg-center text-white">
+        <div className="absolute inset-0 bg-gradient-to-b from-[#001a3d]/70 via-[#002550]/55 to-[#003d76]/30" />
+        <div className="absolute inset-0 bg-gradient-radial from-white/35 via-white/10 to-transparent" />
+        <div className="relative mx-auto max-w-7xl px-4 py-24 sm:px-6 sm:py-32 lg:py-4">
+          <div className="mx-auto max-w-3xl text-center rounded-[32px] bg-white/20 px-6 py-10 backdrop-blur-xl shadow-[0_35px_90px_rgba(0,23,49,0.35)] border border-white/25">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-1.5 text-sm text-white/90">
               <Sparkles className="h-4 w-4 text-yellow-300" />
               <span>Hack the Student Life 2026</span>
             </div>
-            <h1 className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
+            <h1 className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl drop-shadow-[0_12px_35px_rgba(0,0,0,0.4)]">
               Connect with the
-              <span className="block bg-gradient-to-r from-blue-200 to-cyan-200 bg-clip-text text-transparent">
+              <span className="block bg-gradient-to-r from-sky-200 via-white to-cyan-200 bg-clip-text text-transparent">
                 UofT Community
               </span>
             </h1>
-            <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-blue-100">
+            <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-white/90">
               Discover professors, alumni, and peers who share your interests.
               Build meaningful connections that strengthen your academic journey
               and career path.
@@ -61,7 +62,7 @@ export default function Home() {
           </div>
         </div>
         {/* Wave divider */}
-        <div className="absolute bottom-0 left-0 right-0">
+        <div className="absolute bottom-0 left-0 right-0 ">
           <svg viewBox="0 0 1440 80" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path
               d="M0 80L60 73.3C120 66.7 240 53.3 360 46.7C480 40 600 40 720 46.7C840 53.3 960 66.7 1080 70C1200 73.3 1320 66.7 1380 63.3L1440 60V80H1380C1320 80 1200 80 1080 80C960 80 840 80 720 80C600 80 480 80 360 80C240 80 120 80 60 80H0Z"
@@ -254,8 +255,7 @@ export default function Home() {
       <footer className="border-t py-8">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 flex flex-col items-center gap-2 text-center">
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded bg-[#002A5C]">
-              <span className="text-xs font-bold text-white">U</span>
+            <div className="h-7 w-7 overflow-hidden rounded bg-cover bg-center bg-[url('../components/img/uoft-logo.png')]">
             </div>
             <span className="text-sm font-semibold text-[#002A5C]">
               UofT Connect
