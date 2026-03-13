@@ -13,6 +13,10 @@ export const metadata: Metadata = {
   title: "UofT Connect — Hack the Student Life 2026",
   description:
     "Strengthening academic and career connections across the University of Toronto",
+  icons: {
+    icon: "/img/uoft-logo.png",
+    shortcut: "/img/uoft-logo.png",
+  },
 };
 
 export default function RootLayout({
