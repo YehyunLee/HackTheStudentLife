@@ -61,7 +61,9 @@ export async function fetchPosts(): Promise<Post[]> {
   const response = await fetch(`${API_BASE_URL}/posts`, { headers });
   
   if (!response.ok) {
-    throw new Error(`Failed to fetch posts: ${response.statusText}`);
+    const errorText = await response.text();
+    console.error('fetchPosts error:', response.status, errorText);
+    throw new Error(`Failed to fetch posts: ${response.status} ${response.statusText}`);
   }
   
   const data = await response.json();
@@ -84,7 +86,9 @@ export async function createPost(post: {
   });
   
   if (!response.ok) {
-    throw new Error(`Failed to create post: ${response.statusText}`);
+    const errorText = await response.text();
+    console.error('createPost error:', response.status, errorText);
+    throw new Error(`Failed to create post: ${response.status} ${response.statusText}`);
   }
   
   const data = await response.json();

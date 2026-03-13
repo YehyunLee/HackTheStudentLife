@@ -175,12 +175,16 @@ async function listPosts() {
   );
 
   const missingAuthorIds = posts
-    .filter((post) => !post.author || !post.author.name)
+    .filter((post) => !post.author || !post.author.name || post.author.name === "Unknown")
     .map((post) => post.authorId)
     .filter(Boolean);
 
+  console.log('Posts needing author enrichment:', missingAuthorIds.length);
+
   if (missingAuthorIds.length > 0) {
     const uniqueIds = [...new Set(missingAuthorIds)];
+    console.log('Fetching users for IDs:', uniqueIds);
+    
     const usersResult = await docClient.send(
       new BatchGetCommand({
         RequestItems: {
@@ -199,9 +203,12 @@ async function listPosts() {
       {}
     );
 
+    console.log('Found users:', Object.keys(users).length);
+
     posts = posts.map((post) => {
-      if (!post.author || !post.author.name) {
+      if (!post.author || !post.author.name || post.author.name === "Unknown") {
         const user = users[post.authorId];
+        console.log(`Enriching post ${post.postId} for author ${post.authorId}:`, user ? 'found' : 'not found');
         post.author = {
           id: post.authorId,
           name: user?.name || user?.email?.split("@")[0] || "Unknown",
@@ -272,16 +279,19 @@ async function ensureUserProfile(userId, userEmail, userName) {
   if (existing.Item) {
     return {
       name: existing.Item.name || existing.Item.email?.split("@")[0] || userName || "Unknown",
-      email: existing.Item.email || userEmail || "",
+      email: existing.Item.email || userEmail || `${userId}@unknown.local`,
       role: existing.Item.role || "student",
       department: existing.Item.department || existing.Item.faculty || "Unknown",
     };
   }
 
+  const finalEmail = userEmail && userEmail.trim() ? userEmail : `${userId}@unknown.local`;
+  const finalName = userName && userName.trim() ? userName : (userEmail ? userEmail.split("@")[0] : userId);
+
   const newUser = {
     userId,
-    email: userEmail,
-    name: userName || userEmail?.split("@")[0] || "Unknown",
+    email: finalEmail,
+    name: finalName,
     role: "student",
     department: "Unknown",
     interests: [],
