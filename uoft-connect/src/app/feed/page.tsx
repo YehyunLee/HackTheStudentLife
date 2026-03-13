@@ -256,14 +256,15 @@ export default function FeedPage() {
   const [selectedType, setSelectedType] = useState("looking-for");
   const [showComposer, setShowComposer] = useState(false);
   const [viewMode, setViewMode] = useState<"feed" | "swipe">("feed");
-
-  if (viewMode === "swipe") {
-    return <SwipeView posts={mockPosts} onClose={() => setViewMode("feed")} />;
-  }
+  const isSwipeView = viewMode === "swipe";
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+    <>
+      {isSwipeView && (
+        <SwipeView posts={mockPosts} onClose={() => setViewMode("feed")} />
+      )}
+      <div className="min-h-screen bg-gray-50">
+        <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
         {/* Page Header */}
         <div className="mb-8 flex items-start justify-between">
           <div>
@@ -275,10 +276,10 @@ export default function FeedPage() {
           {/* View Mode Toggle */}
           <div className="flex items-center gap-1 bg-white rounded-lg shadow-sm p-1">
             <Button
-              variant={viewMode === "feed" ? "default" : "ghost"}
+              variant={!isSwipeView ? "default" : "ghost"}
               size="sm"
               className={`h-8 px-3 ${
-                viewMode === "feed"
+                !isSwipeView
                   ? "bg-[#002A5C] text-white"
                   : "text-gray-500"
               }`}
@@ -288,10 +289,10 @@ export default function FeedPage() {
               Feed
             </Button>
             <Button
-              variant={viewMode === "swipe" ? "default" : "ghost"}
+              variant={isSwipeView ? "default" : "ghost"}
               size="sm"
               className={`h-8 px-3 ${
-                viewMode === "swipe"
+                isSwipeView
                   ? "bg-[#002A5C] text-white"
                   : "text-gray-500"
               }`}
@@ -457,7 +458,8 @@ export default function FeedPage() {
             ))}
           </TabsContent>
         </Tabs>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
