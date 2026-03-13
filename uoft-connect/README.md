@@ -151,7 +151,7 @@ aws cognito-idp create-user-pool \
 ## Team
 
 Built at **Hack the Student Life 2026** by:
-- [Your team members here]
+- Thomas (Yehyun) Lee, Albert, and Jenny
 
 ---
 
