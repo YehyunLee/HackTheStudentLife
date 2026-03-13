@@ -255,7 +255,7 @@ export default function FeedPage() {
   const [selectedVisibility, setSelectedVisibility] = useState("everyone");
   const [selectedType, setSelectedType] = useState("looking-for");
   const [showComposer, setShowComposer] = useState(false);
-  const [viewMode, setViewMode] = useState<"feed" | "swipe">("feed");
+  const [viewMode, setViewMode] = useState("feed");
 
   if (viewMode === "swipe") {
     return <SwipeView posts={mockPosts} onClose={() => setViewMode("feed")} />;

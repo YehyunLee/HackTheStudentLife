@@ -102,17 +102,17 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#002A5C] via-[#003d82] to-[#1a5fb4] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-[#002A5C] via-[#003d82] to-[#1a5fb4] flex items-center justify-center p-4 text-white">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-2">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-lg">
-              <span className="text-xl font-bold text-[#002A5C]">U</span>
+              <span className="text-xl font-bold text-white">U</span>
             </div>
             <span className="text-2xl font-bold text-white">UofT Connect</span>
           </Link>
-          <p className="mt-2 text-blue-200 text-sm">
+          <p className="mt-2 text-white text-sm">
             Sign in with your UofT email to continue
           </p>
         </div>
@@ -121,7 +121,7 @@ export default function LoginPage() {
           <CardHeader className="pb-4">
             <div className="flex items-center justify-center gap-2 mb-2">
               <GraduationCap className="h-5 w-5 text-[#002A5C]" />
-              <Badge className="bg-[#002A5C]/10 text-[#002A5C] text-xs">
+              <Badge className="bg-[#002A5C]/10 text-white text-xs">
                 UofT Members Only
               </Badge>
             </div>
@@ -148,12 +148,12 @@ export default function LoginPage() {
             {needsConfirmation ? (
               <form onSubmit={handleConfirmSignUp} className="space-y-4">
                 <div className="text-center mb-4">
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-white">
                     We sent a verification code to <strong>{signUpEmail}</strong>
                   </p>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">
+                  <label className="text-sm font-medium text-white">
                     Verification Code
                   </label>
                   <Input
@@ -191,11 +191,11 @@ export default function LoginPage() {
                 <TabsContent value="signin">
                   <form onSubmit={handleSignIn} className="space-y-4">
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">
+                      <label className="text-sm font-medium text-white">
                         Email
                       </label>
                       <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                        <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/70" />
                         <Input
                           type="email"
                           placeholder="you@mail.utoronto.ca"
@@ -207,11 +207,11 @@ export default function LoginPage() {
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">
+                      <label className="text-sm font-medium text-white">
                         Password
                       </label>
                       <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                        <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/70" />
                         <Input
                           type="password"
                           placeholder="••••••••"
@@ -242,11 +242,11 @@ export default function LoginPage() {
                 <TabsContent value="signup">
                   <form onSubmit={handleSignUp} className="space-y-4">
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">
+                      <label className="text-sm font-medium text-white">
                         Full Name
                       </label>
                       <div className="relative">
-                        <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                        <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/70" />
                         <Input
                           type="text"
                           placeholder="Your full name"
@@ -258,11 +258,11 @@ export default function LoginPage() {
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">
+                      <label className="text-sm font-medium text-white">
                         UofT Email
                       </label>
                       <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                        <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/70" />
                         <Input
                           type="email"
                           placeholder="you@mail.utoronto.ca"
@@ -272,16 +272,16 @@ export default function LoginPage() {
                           required
                         />
                       </div>
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-white">
                         Must be @utoronto.ca or @mail.utoronto.ca
                       </p>
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">
+                      <label className="text-sm font-medium text-white">
                         Password
                       </label>
                       <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                        <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/70" />
                         <Input
                           type="password"
                           placeholder="Min 8 chars, uppercase, number"
@@ -314,7 +314,7 @@ export default function LoginPage() {
           </CardContent>
         </Card>
 
-        <p className="mt-6 text-center text-xs text-blue-200">
+        <p className="mt-6 text-center text-xs text-white">
           By signing in, you agree to our Terms of Service and Privacy Policy.
           <br />
           Built at Hack the Student Life 2026
