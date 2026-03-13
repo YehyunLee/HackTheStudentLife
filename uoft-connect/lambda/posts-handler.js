@@ -954,6 +954,9 @@ async function sendMessage(body, userId, userEmail, userName) {
     };
   }
 
+  // Ensure sender profile exists and get accurate data
+  const senderProfile = await ensureUserProfile(userId, userEmail, userName);
+
   const conversationId = existingConvId || `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   const now = new Date().toISOString();
@@ -971,7 +974,7 @@ async function sendMessage(body, userId, userEmail, userName) {
   const newMessage = {
     messageId,
     senderId: userId,
-    senderName: userName || userEmail?.split("@")[0] || "Unknown",
+    senderName: senderProfile.name,
     content: content.trim(),
     timestamp: now,
     read: false,

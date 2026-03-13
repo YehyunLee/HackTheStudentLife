@@ -304,7 +304,7 @@ export default function DiscoverPage() {
                         size="sm"
                         variant={postType === "offering" ? "default" : "outline"}
                         onClick={() => setPostType("offering")}
-                        className={postType === "offering" ? "bg-[#002A5C]" : ""}
+                        className={postType === "offering" ? "bg-[#002A5C] text-white" : ""}
                       >
                         Offering
                       </Button>
@@ -312,7 +312,7 @@ export default function DiscoverPage() {
                         size="sm"
                         variant={postType === "discussion" ? "default" : "outline"}
                         onClick={() => setPostType("discussion")}
-                        className={postType === "discussion" ? "bg-[#002A5C]" : ""}
+                        className={postType === "discussion" ? "bg-[#002A5C] text-white" : ""}
                       >
                         Discussion
                       </Button>

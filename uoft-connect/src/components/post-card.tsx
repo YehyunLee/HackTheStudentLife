@@ -31,6 +31,7 @@ type PostCardProps = {
   onUnlike?: (post: Post) => void;
   onReply?: (post: Post) => void;
   onViewProfile?: (author: Post["author"]) => void;
+  onMessage?: (post: Post) => void;
 };
 
 const visibilityIcon = {
@@ -74,6 +75,7 @@ export function PostCard({
   onUnlike,
   onReply,
   onViewProfile,
+  onMessage,
 }: PostCardProps) {
   const authorRole = (post.author.role || "student") as keyof typeof roleBadge;
   const roleClass = roleBadge[authorRole] ?? FALLBACK_ROLE_CLASS;
@@ -140,7 +142,7 @@ export function PostCard({
       </CardContent>
       <CardFooter className="border-t pt-3">
         <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex gap-1">
+          <div className="flex gap-1 flex-wrap">
             <Button 
               variant="ghost" 
               size="sm" 
@@ -173,6 +175,17 @@ export function PostCard({
               >
                 <Eye className="mr-1 h-3.5 w-3.5" />
                 <span className="text-xs">View</span>
+              </Button>
+            )}
+            {onMessage && !isOwnPost && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-gray-500 hover:text-[#002A5C] h-8 px-2"
+                onClick={() => onMessage(post)}
+              >
+                <MessageCircle className="mr-1 h-3.5 w-3.5" />
+                <span className="text-xs">Message</span>
               </Button>
             )}
             {isOwnPost && (
