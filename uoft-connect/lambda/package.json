@@ -1,0 +1,10 @@
+{
+  "name": "uoft-connect-lambda",
+  "version": "1.0.0",
+  "description": "Lambda function for UofT Connect API",
+  "main": "posts-handler.js",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.0.0",
+    "@aws-sdk/lib-dynamodb": "^3.0.0"
+  }
+}

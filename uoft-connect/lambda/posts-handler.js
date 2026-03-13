@@ -134,6 +134,18 @@ exports.handler = async (event) => {
       return await updateUser(userId, body);
     }
 
+    if (path === "/users" && method === "GET") {
+      return await listUsers();
+    }
+
+    if (path.startsWith("/users/") && method === "GET") {
+      const targetUserId = path.split("/")[2];
+      if (targetUserId === "me") {
+        return await getOrCreateUser(userId, userEmail, userName);
+      }
+      return await getUserById(targetUserId);
+    }
+
     return {
       statusCode: 404,
       headers,
@@ -415,5 +427,47 @@ async function updateUser(userId, updates) {
     statusCode: 200,
     headers,
     body: JSON.stringify({ user: updatedUser }),
+  };
+}
+
+async function listUsers() {
+  const result = await docClient.send(
+    new ScanCommand({
+      TableName: USERS_TABLE,
+      Limit: 100,
+    })
+  );
+
+  const users = (result.Items || []).sort(
+    (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+  );
+
+  return {
+    statusCode: 200,
+    headers,
+    body: JSON.stringify({ users }),
+  };
+}
+
+async function getUserById(targetUserId) {
+  const result = await docClient.send(
+    new GetCommand({
+      TableName: USERS_TABLE,
+      Key: { userId: targetUserId },
+    })
+  );
+
+  if (!result.Item) {
+    return {
+      statusCode: 404,
+      headers,
+      body: JSON.stringify({ error: "User not found" }),
+    };
+  }
+
+  return {
+    statusCode: 200,
+    headers,
+    body: JSON.stringify({ user: result.Item }),
   };
 }
