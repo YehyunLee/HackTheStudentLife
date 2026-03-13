@@ -404,7 +404,9 @@ export default function FeedPage() {
               Posts, Discover, and other community features are available once you log in with your UofT email.
             </p>
             <Link href="/login" className="block">
-              <Button className="w-full bg-[#002A5C] hover:bg-[#002A5C]/90">Go to Login</Button>
+              <Button className="w-full bg-[#002A5C] text-white hover:bg-[#002A5C]/90">
+                Go to Login
+              </Button>
             </Link>
           </CardContent>
         </Card>
