@@ -430,26 +430,18 @@ export default function FeedPage() {
           {/* View Mode Toggle */}
           <div className="flex items-center gap-1 bg-white rounded-lg shadow-sm p-1">
             <Button
-              variant={viewMode === "feed" ? "default" : "ghost"}
+              variant="default"
               size="sm"
-              className={`h-8 px-3 ${
-                viewMode === "feed"
-                  ? "bg-[#002A5C] text-white"
-                  : "text-gray-500"
-              }`}
+              className="h-8 px-3 bg-[#002A5C] text-white"
               onClick={() => setViewMode("feed")}
             >
               <LayoutGrid className="h-4 w-4 mr-1.5" />
               Feed
             </Button>
             <Button
-              variant={viewMode === "swipe" ? "default" : "ghost"}
+              variant="ghost"
               size="sm"
-              className={`h-8 px-3 ${
-                viewMode === "swipe"
-                  ? "bg-[#002A5C] text-white"
-                  : "text-gray-500"
-              }`}
+              className="h-8 px-3 text-gray-500"
               onClick={() => setViewMode("swipe")}
             >
               <Layers className="h-4 w-4 mr-1.5" />

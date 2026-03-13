@@ -1,8 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/auth-context";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProfileCard } from "@/components/profile-card";
@@ -31,6 +34,7 @@ const interestFilters = [
 ];
 
 export default function DiscoverPage() {
+  const { isAuthenticated } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
 
@@ -57,6 +61,24 @@ export default function DiscoverPage() {
   });
 
   const getMatchScore = () => Math.floor(Math.random() * 30) + 70;
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <Card className="max-w-md w-full text-center p-8">
+          <CardContent className="space-y-4">
+            <h2 className="text-xl font-semibold text-[#002A5C]">Sign in to discover connections</h2>
+            <p className="text-sm text-gray-500">
+              Discover people who align with your interests once you log in with your UofT email.
+            </p>
+            <Link href="/login" className="block">
+              <Button className="w-full bg-[#002A5C] hover:bg-[#002A5C]/90">Go to Login</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

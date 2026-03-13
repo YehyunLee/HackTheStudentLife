@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuth } from "@/lib/auth-context";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -105,6 +107,26 @@ const topInterests = [
 ];
 
 export default function DashboardPage() {
+  const { isAuthenticated } = useAuth();
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <Card className="max-w-md w-full text-center p-8">
+          <CardContent className="space-y-4">
+            <h2 className="text-xl font-semibold text-[#002A5C]">Sign in to view your dashboard</h2>
+            <p className="text-sm text-gray-500">
+              Access your professional overview once you log in with your UofT email.
+            </p>
+            <Link href="/login" className="block">
+              <Button className="w-full bg-[#002A5C] hover:bg-[#002A5C]/90">Go to Login</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
