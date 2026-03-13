@@ -54,7 +54,9 @@ export function PostCard({ post }: { post: Post }) {
                 <span className="font-semibold text-sm">{post.author.name}</span>
                 <Badge
                   variant="secondary"
-                  className={`text-[10px] px-1.5 py-0 ${roleBadge[post.author.role]}`}
+                  className={`text-[10px] px-1.5 py-0 ${
+                    roleBadge[post.author.role as keyof typeof roleBadge]
+                  }`}
                 >
                   {post.author.role}
                 </Badge>

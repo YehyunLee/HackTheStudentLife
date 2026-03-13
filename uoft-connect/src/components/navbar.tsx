@@ -52,8 +52,7 @@ export function Navbar() {
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#002A5C]">
-            <span className="text-sm font-bold text-white">U</span>
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-cover bg-center bg-[url('../components/img/uoft-logo.png')]">
           </div>
           <span className="hidden text-lg font-bold text-[#002A5C] sm:inline">
             UofT Connect
