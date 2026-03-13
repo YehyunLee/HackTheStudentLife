@@ -9,6 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PostCard } from "@/components/post-card";
 import { mockPosts } from "@/lib/mock-data";
+import { fetchPosts, createPost, type Post as ApiPost } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 import {
   PenSquare,
   Eye,
@@ -27,20 +29,23 @@ import {
   MessageCircle,
   Share2,
   X,
+  Loader2,
 } from "lucide-react";
 
-const visibilityOptions = [
+const visibilityOptions: { value: "everyone" | "students" | "faculty" | "alumni"; label: string; icon: typeof Eye }[] = [
   { value: "everyone", label: "Everyone", icon: Eye },
   { value: "students", label: "Students Only", icon: GraduationCap },
   { value: "faculty", label: "Faculty Only", icon: Users },
   { value: "alumni", label: "Alumni Only", icon: Lock },
 ];
 
-const postTypes = [
+const postTypes: { value: "looking-for" | "offering" | "discussion"; label: string; color: string }[] = [
   { value: "looking-for", label: "Looking For", color: "bg-blue-500" },
   { value: "offering", label: "Offering", color: "bg-green-500" },
   { value: "discussion", label: "Discussion", color: "bg-purple-500" },
 ];
+
+type FeedPost = ApiPost | (typeof mockPosts)[number];
 
 function getInitials(name: string) {
   return name
@@ -50,11 +55,13 @@ function getInitials(name: string) {
     .toUpperCase();
 }
 
+const getPostKey = (post: FeedPost) => ("postId" in post ? post.postId : post.id);
+
 function SwipeView({
   posts,
   onClose,
 }: {
-  posts: typeof mockPosts;
+  posts: FeedPost[];
   onClose: () => void;
 }) {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -329,14 +336,61 @@ function SwipeView({
 }
 
 export default function FeedPage() {
+  const { isAuthenticated } = useAuth();
   const [newPost, setNewPost] = useState("");
-  const [selectedVisibility, setSelectedVisibility] = useState("everyone");
-  const [selectedType, setSelectedType] = useState("looking-for");
+  const [selectedVisibility, setSelectedVisibility] = useState<"everyone" | "students" | "faculty" | "alumni">("everyone");
+  const [selectedType, setSelectedType] = useState<"looking-for" | "offering" | "discussion">("looking-for");
   const [showComposer, setShowComposer] = useState(false);
-  const [viewMode, setViewMode] = useState("feed");
+  const [viewMode, setViewMode] = useState<"feed" | "swipe">("feed");
+  const [posts, setPosts] = useState<ApiPost[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isPosting, setIsPosting] = useState(false);
+  const [error, setError] = useState("");
+
+  const loadPosts = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const data = await fetchPosts();
+      setPosts(data);
+    } catch (err) {
+      console.error("Failed to load posts", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadPosts();
+  }, [loadPosts]);
+
+  const handleCreatePost = async () => {
+    if (!newPost.trim() || !isAuthenticated) return;
+
+    setIsPosting(true);
+    setError("");
+    try {
+      const created = await createPost({
+        content: newPost,
+        tags: [],
+        type: selectedType,
+        visibility: selectedVisibility,
+      });
+      setPosts((prev) => [created, ...prev]);
+      setNewPost("");
+      setShowComposer(false);
+    } catch (err) {
+      console.error("Failed to create post", err);
+      setError("Unable to post right now. Please try again.");
+    } finally {
+      setIsPosting(false);
+    }
+  };
+
+  const displayPosts: FeedPost[] = posts.length > 0 ? posts : mockPosts;
+  const trendingPosts = [...displayPosts].sort((a, b) => (b.likes || 0) - (a.likes || 0));
 
   if (viewMode === "swipe") {
-    return <SwipeView posts={mockPosts} onClose={() => setViewMode("feed")} />;
+    return <SwipeView posts={displayPosts} onClose={() => setViewMode("feed")} />;
   }
 
   return (
@@ -468,17 +522,20 @@ export default function FeedPage() {
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowComposer(false)}
+                  disabled={isPosting}
                 >
                   Cancel
                 </Button>
                 <Button
                   size="sm"
                   className="bg-[#002A5C] hover:bg-[#002A5C]/90 text-white"
-                  disabled={!newPost.trim()}
+                  disabled={!newPost.trim() || !isAuthenticated || isPosting}
+                  onClick={handleCreatePost}
                 >
-                  Post
+                  {isPosting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Post"}
                 </Button>
               </div>
+              {error && <p className="text-sm text-red-500">{error}</p>}
             </CardContent>
           </Card>
         )}
@@ -507,17 +564,19 @@ export default function FeedPage() {
           </div>
 
           <TabsContent value="latest" className="space-y-4">
-            {mockPosts.map((post) => (
-              <PostCard key={post.id} post={post} />
-            ))}
+            {isLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-[#002A5C]" />
+              </div>
+            ) : (
+              displayPosts.map((post) => <PostCard key={getPostKey(post)} post={post} />)
+            )}
           </TabsContent>
 
           <TabsContent value="trending" className="space-y-4">
-            {[...mockPosts]
-              .sort((a, b) => b.likes - a.likes)
-              .map((post) => (
-                <PostCard key={post.id} post={post} />
-              ))}
+            {trendingPosts.map((post) => (
+              <PostCard key={`${getPostKey(post)}-trending`} post={post} />
+            ))}
           </TabsContent>
 
           <TabsContent value="for-you" className="space-y-4">
@@ -530,8 +589,8 @@ export default function FeedPage() {
                 Posts ranked by relevance to your interests and connections
               </p>
             </div>
-            {mockPosts.slice(0, 3).map((post) => (
-              <PostCard key={post.id} post={post} />
+            {displayPosts.slice(0, 3).map((post, idx) => (
+              <PostCard key={`${getPostKey(post)}-for-you-${idx}`} post={post} />
             ))}
           </TabsContent>
         </Tabs>
