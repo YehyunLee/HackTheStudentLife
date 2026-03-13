@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
@@ -32,6 +33,7 @@ import {
 
 export default function DiscoverPage() {
   const { isAuthenticated } = useAuth();
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
 
   const filteredResearchGroups = mockResearchGroups.filter((group) =>
@@ -156,14 +158,11 @@ export default function DiscoverPage() {
               </h2>
               <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {filteredResearchGroups.map((group) => (
-                  <Link
+                  <Card
                     key={group.id}
-                    href={group.url || "#"}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block"
+                    className="overflow-hidden border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                    onClick={() => router.push(`/research-groups/${group.id}`)}
                   >
-                    <Card className="overflow-hidden border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow cursor-pointer">
                       {group.image && (
                         <div className="aspect-video bg-gradient-to-br from-blue-50 to-blue-100 relative">
                           <img
@@ -189,7 +188,6 @@ export default function DiscoverPage() {
                         </div>
                       </div>
                     </Card>
-                  </Link>
                 ))}
               </div>
             </div>

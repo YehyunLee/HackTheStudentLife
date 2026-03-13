@@ -30,9 +30,30 @@ export interface ResearchGroup {
   name: string;
   department: string;
   description: string;
+  longDescription?: string;
   tags: string[];
   contact: string;
+  contactPerson?: UserProfile;
   image?: string;
+  url?: string;
+  researchAreas?: ResearchArea[];
+  members?: UserProfile[];
+}
+
+export interface ResearchArea {
+  id: string;
+  title: string;
+  description: string;
+  papers?: Paper[];
+}
+
+export interface Paper {
+  id: string;
+  title: string;
+  authors: string[];
+  journal: string;
+  year: number;
+  doi?: string;
   url?: string;
 }
 
@@ -262,40 +283,217 @@ export const mockResearchGroups: ResearchGroup[] = [
     name: "Centre for Quantum Information and Quantum Control (CQIQC)",
     department: "Physics",
     description: "Promoting research collaborations in quantum information and quantum control. Activities encompass quantum computing, quantum optics, quantum cryptography, and quantum algorithms across multiple departments.",
+    longDescription: "The Centre for Quantum Information and Quantum Control (CQIQC) is an interdisciplinary research centre at the University of Toronto that brings together researchers from physics, computer science, mathematics, chemistry, and engineering. Our mission is to advance the frontiers of quantum information science and technology through collaborative research, education, and outreach. We focus on fundamental questions in quantum mechanics and their applications to quantum computing, quantum communication, and quantum sensing.",
     tags: ["Quantum Computing", "Quantum Information", "Physics", "Algorithms"],
     contact: "quantum@utoronto.ca",
+    contactPerson: mockUsers[4], // Dr. Emily Zhang as main contact
     image: "https://cqiqc.physics.utoronto.ca/media/images/CQIQC-Connections_for_websiteSmall_Font.max-1280x450.png",
     url: "https://cqiqc.physics.utoronto.ca/",
+    researchAreas: [
+      {
+        id: "ra1",
+        title: "Quantum Computing and Algorithms",
+        description: "Development of quantum algorithms for optimization, machine learning, and computational chemistry problems.",
+        papers: [
+          {
+            id: "p1",
+            title: "Quantum algorithms for portfolio optimization",
+            authors: ["E. Zhang", "A. Kumar", "R. Sanders"],
+            journal: "Quantum Information Processing",
+            year: 2024,
+            doi: "10.1007/s11128-024-04567-8"
+          },
+          {
+            id: "p2",
+            title: "Variational quantum algorithms for molecular simulation",
+            authors: ["E. Zhang", "M. Troyer", "S. Lloyd"],
+            journal: "Physical Review A",
+            year: 2023,
+            doi: "10.1103/PhysRevA.108.032418"
+          }
+        ]
+      },
+      {
+        id: "ra2",
+        title: "Quantum Optics and Control",
+        description: "Quantum control of light-matter interactions, quantum optics experiments, and quantum measurement theory.",
+        papers: [
+          {
+            id: "p3",
+            title: "Optimal quantum control of superconducting qubits",
+            authors: ["H. Wiseman", "A. Doherty", "K. Jacobs"],
+            journal: "Physical Review Letters",
+            year: 2024,
+            doi: "10.1103/PhysRevLett.132.170601"
+          }
+        ]
+      },
+      {
+        id: "ra3",
+        title: "Quantum Cryptography",
+        description: "Quantum key distribution protocols, device-independent quantum cryptography, and post-quantum cryptography.",
+        papers: [
+          {
+            id: "p4",
+            title: "Device-independent quantum key distribution with imperfect devices",
+            authors: ["N. Lutkenhaus", "R. Renner", "J. Yard"],
+            journal: "Physical Review A",
+            year: 2023,
+            doi: "10.1103/PhysRevA.107.042606"
+          }
+        ]
+      }
+    ],
+    members: [
+      mockUsers[4], // Dr. Emily Zhang (Quantum Computing)
+      mockUsers[5], // Dr. Robert Chen (Quantum Optics)
+      mockUsers[6], // Dr. Sarah Johnson (Quantum Cryptography)
+      mockUsers[7], // Dr. Michael Davis (Quantum Algorithms)
+    ]
   },
   {
     id: "rg2",
     name: "Biological Physics",
     department: "Physics",
     description: "Research at the interface of Physics, Chemistry and Biology, focusing on problems in biophysics, molecular dynamics, and biological systems.",
+    longDescription: "The Biological Physics group at the University of Toronto explores the fundamental physical principles underlying biological processes. Our research spans from single molecule biophysics to complex biological systems, using advanced experimental and computational techniques to understand how physics governs life at all scales.",
     tags: ["Biophysics", "Physics", "Biology", "Molecular Dynamics"],
     contact: "biophysics@physics.utoronto.ca",
+    contactPerson: mockUsers[8], // Dr. Lisa Wang
     image: "https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=400&h=250&fit=crop",
     url: "https://www.physics.utoronto.ca/research/biological-physics/",
+    researchAreas: [
+      {
+        id: "ra4",
+        title: "Single Molecule Biophysics",
+        description: "Studying individual biomolecules and their interactions using optical tweezers, fluorescence microscopy, and single-molecule tracking.",
+        papers: [
+          {
+            id: "p5",
+            title: "Mechanical unfolding of protein domains",
+            authors: ["L. Wang", "J. Liphardt", "C. Bustamante"],
+            journal: "Biophysical Journal",
+            year: 2024,
+            doi: "10.1016/j.bpj.2024.03.012"
+          }
+        ]
+      },
+      {
+        id: "ra5",
+        title: "Molecular Dynamics Simulations",
+        description: "Computational modeling of biological systems at atomic resolution to understand protein folding, enzyme catalysis, and membrane dynamics.",
+        papers: [
+          {
+            id: "p6",
+            title: "All-atom simulations of membrane protein folding",
+            authors: ["L. Wang", "D. Thirumalai", "K. Schulten"],
+            journal: "Proceedings of the National Academy of Sciences",
+            year: 2023,
+            doi: "10.1073/pnas.2304567120"
+          }
+        ]
+      }
+    ],
+    members: [
+      mockUsers[1], // Dr. James Park
+      mockUsers[2], // Priya Sharma
+    ]
   },
   {
     id: "rg3",
     name: "Earth, Atmospheric, and Planetary Physics (EAPP)",
     department: "Physics",
     description: "Research focused on global-scale physical processes in the Earth and planets including the interiors, oceans and atmospheres.",
+    longDescription: "The Earth, Atmospheric, and Planetary Physics group investigates the physical processes that shape our planet and other worlds in our solar system. Our research encompasses atmospheric dynamics, climate modeling, planetary interiors, ocean circulation, and geophysical fluid dynamics.",
     tags: ["Earth Science", "Atmospheric Physics", "Planetary Science", "Climate"],
     contact: "eapp@physics.utoronto.ca",
+    contactPerson: mockUsers[10], // Dr. Jennifer Martinez
     image: "https://www.physics.utoronto.ca/media/images/EAPP_homepage_image_9Ewe8Nd.width-800_lexv3jE.jpg",
     url: "https://www.physics.utoronto.ca/research/eapp/",
+    researchAreas: [
+      {
+        id: "ra6",
+        title: "Atmospheric Dynamics",
+        description: "Understanding large-scale atmospheric circulation patterns, weather systems, and climate variability.",
+        papers: [
+          {
+            id: "p7",
+            title: "Tropical cyclone intensification in a warming climate",
+            authors: ["J. Martinez", "K. Emanuel", "R. Rotunno"],
+            journal: "Journal of Climate",
+            year: 2024,
+            doi: "10.1175/JCLI-D-23-0567.1"
+          }
+        ]
+      },
+      {
+        id: "ra7",
+        title: "Planetary Interiors",
+        description: "Modeling the structure and dynamics of planetary cores, mantles, and magnetic fields.",
+        papers: [
+          {
+            id: "p8",
+            title: "Dynamo action in planetary cores",
+            authors: ["J. Martinez", "C. Jones", "P. Olson"],
+            journal: "Geophysical Journal International",
+            year: 2023,
+            doi: "10.1093/gji/ggad245"
+          }
+        ]
+      }
+    ],
+    members: [
+      mockUsers[3], // Marcus Johnson
+      mockUsers[0], // Sarah Chen
+    ]
   },
   {
     id: "rg4",
     name: "Quantum Condensed Matter Physics",
     department: "Physics",
     description: "Studies the properties of large collections of atoms that compose both ordinary and exotic materials, including superconductors and nanomaterials.",
+    longDescription: "The Quantum Condensed Matter Physics group explores the collective behavior of quantum many-body systems. Our research focuses on emergent phenomena in strongly correlated electron systems, topological materials, superconductors, and quantum phase transitions.",
     tags: ["Condensed Matter", "Quantum Physics", "Materials Science", "Superconductivity"],
     contact: "qcmp@physics.utoronto.ca",
+    contactPerson: mockUsers[12], // Dr. Kevin Brown
     image: "https://www.physics.utoronto.ca/media/images/condensed_matter_lab.c6cd7673.original.fill-1200x450_TnGW2e4.jpg",
     url: "https://www.physics.utoronto.ca/research/quantum-condensed-matter-physics/",
+    researchAreas: [
+      {
+        id: "ra8",
+        title: "Topological Materials",
+        description: "Discovery and characterization of topological insulators, Weyl semimetals, and quantum anomalous Hall systems.",
+        papers: [
+          {
+            id: "p9",
+            title: "Topological phase transitions in 2D materials",
+            authors: ["K. Brown", "M. Franz", "L. Fu"],
+            journal: "Nature Physics",
+            year: 2024,
+            doi: "10.1038/s41567-024-02456-7"
+          }
+        ]
+      },
+      {
+        id: "ra9",
+        title: "Superconductivity",
+        description: "High-temperature superconductivity, unconventional pairing mechanisms, and superconducting devices.",
+        papers: [
+          {
+            id: "p10",
+            title: "Pairing symmetry in iron-based superconductors",
+            authors: ["K. Brown", "P. Hirschfeld", "D. Scalapino"],
+            journal: "Reviews of Modern Physics",
+            year: 2023,
+            doi: "10.1103/RevModPhys.95.025003"
+          }
+        ]
+      }
+    ],
+    members: [
+      mockUsers[12], // Dr. Kevin Brown
+      mockUsers[13], // Dr. Rachel Green
+    ]
   },
   {
     id: "rg5",
@@ -378,7 +576,7 @@ export const mockProfessorOpportunities: ProfessorOpportunity[] = [
     deadline: "May 15, 2026",
     contact: "emily.zhang@utoronto.ca",
     image:
-      "https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=400&h=250&fit=crop",
+      "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=400&h=250&fit=crop",
   },
 ];
 
