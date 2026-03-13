@@ -413,16 +413,17 @@ async function ensureUserProfile(userId, userEmail, userName) {
 
   if (existing.Item) {
     const existingEmail = existing.Item.email || userEmail || `${userId}@unknown.local`;
-    const inferredRole = existing.Item.role || (isInstructorEmail(existingEmail) ? "professor" : "student");
+    const desiredRole = isInstructorEmail(existingEmail)
+      ? "professor"
+      : existing.Item.role || "student";
 
-    // Backfill role if missing or incorrect
-    if (existing.Item.role !== inferredRole) {
+    if (existing.Item.role !== desiredRole) {
       await docClient.send(
         new PutCommand({
           TableName: USERS_TABLE,
           Item: {
             ...existing.Item,
-            role: inferredRole,
+            role: desiredRole,
             updatedAt: new Date().toISOString().replace("T", " ").replace("Z", ""),
           },
         })
@@ -432,7 +433,7 @@ async function ensureUserProfile(userId, userEmail, userName) {
     return {
       name: existing.Item.name || existingEmail.split("@")[0] || userName || "Unknown",
       email: existingEmail,
-      role: inferredRole,
+      role: desiredRole,
       department: existing.Item.department || existing.Item.faculty || "Unknown",
     };
   }

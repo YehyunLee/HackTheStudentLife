@@ -10,8 +10,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PostCard } from "@/components/post-card";
 import { mockPosts } from "@/lib/mock-data";
-import { fetchPosts, createPost, updatePost, deletePost, likePost, unlikePost, replyToPost, type Post as ApiPost, type User as ApiUser } from "@/lib/api";
+import { fetchPosts, createPost, updatePost, deletePost, likePost, unlikePost, replyToPost, sendMessage, type Post as ApiPost } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import { useRouter } from "next/navigation";
 import {
   PenSquare,
   Eye,
@@ -68,6 +69,14 @@ type FeedPost = (ApiPost & {
   repliesList?: ApiPost["repliesList"];
   visibilityGroups?: ApiPost["visibilityGroups"];
 }) | (typeof mockPosts)[number];
+
+type MessageTarget = {
+  userId: string;
+  name: string;
+  department?: string;
+  role?: string;
+  email?: string;
+};
 
 const ensureAudiences = (groups?: VisibilityAudience[]): VisibilityAudience[] => {
   if (!groups || groups.length === 0) {
@@ -151,6 +160,41 @@ function SwipeView({
       alert('Unable to add reply. Please try again.');
     } finally {
       setIsReplying(false);
+    }
+  };
+
+  const handleMessageAuthor = (post: FeedPost) => {
+    if (!isAuthenticated) {
+      router.push("/login");
+      return;
+    }
+    if (!("authorId" in post)) return;
+    if (post.authorId === user?.userId) return;
+
+    setMessageTarget({
+      userId: post.authorId,
+      email: post.author.email,
+      name: post.author.name,
+      role: post.author.role,
+      department: post.author.department,
+    });
+    setMessageContent(`Hi ${post.author.name.split(" ")[0]}, I saw your post about "${post.content.slice(0, 40)}"...`);
+    setIsMessageDialogOpen(true);
+  };
+
+  const sendMessageToAuthor = async () => {
+    if (!messageTarget || !messageContent.trim()) return;
+    try {
+      setIsSendingMessage(true);
+      await sendMessage({ recipientId: messageTarget.userId, content: messageContent.trim() });
+      setIsMessageDialogOpen(false);
+      setMessageContent("Hi! I'd love to chat about your post.");
+      router.push("/messages");
+    } catch (err) {
+      console.error("Failed to send message", err);
+      setError("Unable to send message. Please try again.");
+    } finally {
+      setIsSendingMessage(false);
     }
   };
 
@@ -502,6 +546,7 @@ function SwipeView({
 
 export default function FeedPage() {
   const { isAuthenticated, user } = useAuth();
+  const router = useRouter();
   const [newPost, setNewPost] = useState("");
   const [selectedVisibilityGroups, setSelectedVisibilityGroups] = useState<VisibilityAudience[]>(["everyone"]);
   const [selectedType, setSelectedType] = useState<"looking-for" | "offering" | "discussion">("looking-for");
@@ -511,9 +556,14 @@ export default function FeedPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshingPosts, setIsRefreshingPosts] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
-  const [error, setError] = useState("");
-  const [selectedPost, setSelectedPost] = useState<FeedPost | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isMessageDialogOpen, setIsMessageDialogOpen] = useState(false);
+  const [messageTarget, setMessageTarget] = useState<MessageTarget | null>(null);
+  const [messageContent, setMessageContent] = useState("Hi! I'd love to chat about your post.");
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [showViewDialog, setShowViewDialog] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<FeedPost | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editContent, setEditContent] = useState("");
   const [editType, setEditType] = useState<"looking-for" | "offering" | "discussion">("looking-for");
@@ -524,6 +574,30 @@ export default function FeedPage() {
   const [isReplying, setIsReplying] = useState(false);
   const [profileSheetOpen, setProfileSheetOpen] = useState(false);
   const [profileAuthor, setProfileAuthor] = useState<ApiUser | FeedPost["author"] | null>(null);
+
+  const handleMessageAuthor = (post: FeedPost) => {
+    if (!isAuthenticated) {
+      router.push("/login");
+      return;
+    }
+
+    if (!("authorId" in post)) return;
+    if (post.authorId === user?.userId) return;
+
+    setMessageTarget({
+      userId: post.authorId,
+      email: post.author.email,
+      name: post.author.name,
+      role: post.author.role,
+      department: post.author.department,
+    });
+
+    const firstName = post.author.name.split(" ")[0];
+    setMessageContent(
+      `Hi ${firstName}, I saw your post about "${post.content.slice(0, 60)}" and would love to chat!`
+    );
+    setIsMessageDialogOpen(true);
+  };
 
   const loadPosts = useCallback(async (options?: { silent?: boolean }) => {
     if (!isAuthenticated) {
@@ -948,6 +1022,7 @@ export default function FeedPage() {
                   onDelete={handleDeletePost}
                   onLike={handleLikePost}
                   onUnlike={handleUnlikePost}
+                  onMessage={handleMessageAuthor}
                 />
               ))
             )}
@@ -966,6 +1041,7 @@ export default function FeedPage() {
                 onDelete={handleDeletePost}
                 onLike={handleLikePost}
                 onUnlike={handleUnlikePost}
+                onMessage={handleMessageAuthor}
               />
             ))}
           </TabsContent>
@@ -992,6 +1068,7 @@ export default function FeedPage() {
                 onDelete={handleDeletePost}
                 onLike={handleLikePost}
                 onUnlike={handleUnlikePost}
+                onMessage={handleMessageAuthor}
               />
             ))}
           </TabsContent>
