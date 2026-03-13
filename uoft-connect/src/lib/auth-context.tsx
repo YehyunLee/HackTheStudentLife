@@ -52,11 +52,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const currentUser = await getCurrentUser();
       const attributes = await fetchUserAttributes();
+      const derivedUserId =
+        attributes.sub || currentUser.userId || currentUser.username;
       setUser({
         username: currentUser.username,
-        userId: currentUser.userId,
+        userId: derivedUserId,
         email: attributes.email || "",
-        name: attributes.name,
+        name: attributes.name || currentUser.username,
       });
     } catch {
       setUser(null);

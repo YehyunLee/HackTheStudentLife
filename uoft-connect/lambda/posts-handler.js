@@ -6,6 +6,7 @@ const {
   QueryCommand,
   ScanCommand,
   DeleteCommand,
+  BatchGetCommand,
 } = require("@aws-sdk/lib-dynamodb");
 
 const client = new DynamoDBClient({});
@@ -169,10 +170,49 @@ async function listPosts() {
     })
   );
 
-  // Sort by createdAt descending
-  const posts = (result.Items || []).sort(
+  let posts = (result.Items || []).sort(
     (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
   );
+
+  const missingAuthorIds = posts
+    .filter((post) => !post.author || !post.author.name)
+    .map((post) => post.authorId)
+    .filter(Boolean);
+
+  if (missingAuthorIds.length > 0) {
+    const uniqueIds = [...new Set(missingAuthorIds)];
+    const usersResult = await docClient.send(
+      new BatchGetCommand({
+        RequestItems: {
+          [USERS_TABLE]: {
+            Keys: uniqueIds.map((id) => ({ userId: id })),
+          },
+        },
+      })
+    );
+
+    const users = (usersResult.Responses?.[USERS_TABLE] || []).reduce(
+      (acc, user) => {
+        acc[user.userId] = user;
+        return acc;
+      },
+      {}
+    );
+
+    posts = posts.map((post) => {
+      if (!post.author || !post.author.name) {
+        const user = users[post.authorId];
+        post.author = {
+          id: post.authorId,
+          name: user?.name || user?.email?.split("@")[0] || "Unknown",
+          email: user?.email || "",
+          role: user?.role || "student",
+          department: user?.department || "Unknown",
+        };
+      }
+      return post;
+    });
+  }
 
   return {
     statusCode: 200,
@@ -185,15 +225,17 @@ async function createPost(body, userId, userEmail, userName) {
   const postId = `post_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   const now = new Date().toISOString();
 
+  const authorDetails = await ensureUserProfile(userId, userEmail, userName);
+
   const post = {
     postId,
     authorId: userId,
     author: {
       id: userId,
-      name: userName,
-      email: userEmail,
-      role: body.authorRole || "student",
-      department: body.authorDepartment || "Unknown",
+      name: authorDetails.name,
+      email: authorDetails.email,
+      role: authorDetails.role,
+      department: authorDetails.department,
     },
     content: body.content || "",
     tags: body.tags || [],
@@ -216,6 +258,50 @@ async function createPost(body, userId, userEmail, userName) {
     statusCode: 201,
     headers,
     body: JSON.stringify({ post }),
+  };
+}
+
+async function ensureUserProfile(userId, userEmail, userName) {
+  const existing = await docClient.send(
+    new GetCommand({
+      TableName: USERS_TABLE,
+      Key: { userId },
+    })
+  );
+
+  if (existing.Item) {
+    return {
+      name: existing.Item.name || existing.Item.email?.split("@")[0] || userName || "Unknown",
+      email: existing.Item.email || userEmail || "",
+      role: existing.Item.role || "student",
+      department: existing.Item.department || existing.Item.faculty || "Unknown",
+    };
+  }
+
+  const newUser = {
+    userId,
+    email: userEmail,
+    name: userName || userEmail?.split("@")[0] || "Unknown",
+    role: "student",
+    department: "Unknown",
+    interests: [],
+    lookingFor: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  await docClient.send(
+    new PutCommand({
+      TableName: USERS_TABLE,
+      Item: newUser,
+    })
+  );
+
+  return {
+    name: newUser.name,
+    email: newUser.email,
+    role: newUser.role,
+    department: newUser.department,
   };
 }
 
