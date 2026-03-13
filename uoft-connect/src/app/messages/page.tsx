@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { fetchConversations, fetchConversation, sendMessage as sendMessageApi, markConversationAsRead, type Conversation } from "@/lib/api";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { fetchConversations, fetchConversation, sendMessage as sendMessageApi, markConversationAsRead, fetchUsers, type Conversation, type User } from "@/lib/api";
 import {
   Search,
   Send,
@@ -41,6 +42,12 @@ export default function MessagesPage() {
   const [messageInput, setMessageInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [mobileShowChat, setMobileShowChat] = useState(false);
+  const [showNewMessage, setShowNewMessage] = useState(false);
+  const [availableUsers, setAvailableUsers] = useState<User[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [recipientSearch, setRecipientSearch] = useState("");
+  const [selectedRecipient, setSelectedRecipient] = useState<User | null>(null);
+  const [initialMessage, setInitialMessage] = useState("");
 
   const formatTime = (timestamp: string) => {
     const date = new Date(timestamp);
@@ -101,6 +108,56 @@ export default function MessagesPage() {
     }
   }, [messageInput, selectedConversation, loadConversations]);
 
+  const openNewMessage = () => {
+    setShowNewMessage(true);
+    setSelectedRecipient(null);
+    setInitialMessage("");
+    setRecipientSearch("");
+  };
+
+  useEffect(() => {
+    const fetchRecipients = async () => {
+      if (!showNewMessage) return;
+      try {
+        setUsersLoading(true);
+        const users = await fetchUsers();
+        const filtered = users.filter((u) => u.userId !== user?.userId);
+        setAvailableUsers(filtered);
+      } catch (error) {
+        console.error('Failed to load users', error);
+      } finally {
+        setUsersLoading(false);
+      }
+    };
+    fetchRecipients();
+  }, [showNewMessage, user?.userId]);
+
+  const filteredUsers = availableUsers.filter((u) =>
+    u.name?.toLowerCase().includes(recipientSearch.toLowerCase()) ||
+    u.email?.toLowerCase().includes(recipientSearch.toLowerCase())
+  );
+
+  const handleCreateConversation = async () => {
+    if (!selectedRecipient || !initialMessage.trim()) return;
+    try {
+      setIsSending(true);
+      const { conversation } = await sendMessageApi({
+        recipientId: selectedRecipient.userId,
+        content: initialMessage,
+      });
+      setShowNewMessage(false);
+      setSelectedRecipient(null);
+      setInitialMessage("");
+      await loadConversations();
+      setSelectedConversation(conversation);
+      setMobileShowChat(true);
+    } catch (error) {
+      console.error('Failed to start conversation', error);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
   useEffect(() => {
     loadConversations();
   }, [loadConversations]);
@@ -151,14 +208,19 @@ export default function MessagesPage() {
           <Card className={`lg:col-span-1 ${mobileShowChat ? 'hidden lg:block' : ''}`}>
             <CardContent className="p-0 h-full flex flex-col">
               <div className="p-4 border-b">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Search conversations..."
-                    className="pl-9"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      placeholder="Search conversations..."
+                      className="pl-9"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                  </div>
+                  <Button size="sm" className="bg-[#002A5C] text-white" onClick={openNewMessage}>
+                    New
+                  </Button>
                 </div>
               </div>
 
@@ -329,6 +391,74 @@ export default function MessagesPage() {
           </Card>
         </div>
       </div>
+
+      <Dialog open={showNewMessage} onOpenChange={setShowNewMessage}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Start New Conversation</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-2">Select recipient</p>
+              <Input
+                placeholder="Search by name or email"
+                value={recipientSearch}
+                onChange={(e) => setRecipientSearch(e.target.value)}
+              />
+              <ScrollArea className="max-h-48 mt-2 border rounded-md">
+                {usersLoading ? (
+                  <div className="flex justify-center py-6">
+                    <Loader2 className="h-5 w-5 animate-spin text-[#002A5C]" />
+                  </div>
+                ) : filteredUsers.length === 0 ? (
+                  <p className="text-sm text-center text-gray-500 py-4">No users found</p>
+                ) : (
+                  filteredUsers.map((u) => (
+                    <button
+                      key={u.userId}
+                      type="button"
+                      className={`w-full text-left px-4 py-2 flex items-center gap-3 hover:bg-gray-50 ${
+                        selectedRecipient?.userId === u.userId ? 'bg-blue-50' : ''
+                      }`}
+                      onClick={() => setSelectedRecipient(u)}
+                    >
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback className="bg-[#002A5C]/10 text-[#002A5C]">
+                          {getInitials(u.name || u.email)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="text-sm font-medium">{u.name}</p>
+                        <p className="text-xs text-gray-500">{u.email}</p>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </ScrollArea>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-2">Message</p>
+              <Input
+                placeholder="Say hello..."
+                value={initialMessage}
+                onChange={(e) => setInitialMessage(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowNewMessage(false)}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-[#002A5C]"
+              onClick={handleCreateConversation}
+              disabled={!selectedRecipient || !initialMessage.trim() || isSending}
+            >
+              {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Send'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
