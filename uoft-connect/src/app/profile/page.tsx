@@ -104,13 +104,17 @@ export default function ProfilePage() {
     }
     try {
       setIsLoading(true);
+      setStatusMessage(null);
       const user = await fetchCurrentUser();
       const mapped = mapApiUserToProfile(user);
       setProfile(mapped);
       setOriginalProfile(mapped);
     } catch (error) {
       console.error("Failed to load profile", error);
-      setStatusMessage({ type: "error", text: "Unable to load profile. Please try again." });
+      setStatusMessage({ 
+        type: "error", 
+        text: "Unable to load profile. Make sure you're logged in and the API is deployed." 
+      });
     } finally {
       setIsLoading(false);
     }

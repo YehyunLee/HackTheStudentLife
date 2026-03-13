@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { useAuth } from "@/lib/auth-context";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProfileCard } from "@/components/profile-card";
-import { mockUsers } from "@/lib/mock-data";
+import { fetchUsers, type User } from "@/lib/api";
 import {
   Search,
   SlidersHorizontal,
@@ -18,6 +18,7 @@ import {
   Briefcase,
   BookOpen,
   Users,
+  Loader2,
 } from "lucide-react";
 
 const interestFilters = [
@@ -37,6 +38,30 @@ export default function DiscoverPage() {
   const { isAuthenticated } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const loadUsers = useCallback(async () => {
+    if (!isAuthenticated) {
+      setIsLoading(false);
+      return;
+    }
+    try {
+      setIsLoading(true);
+      const data = await fetchUsers();
+      setUsers(data);
+    } catch (err) {
+      console.error("Failed to load users", err);
+      setError("Unable to load users. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    loadUsers();
+  }, [loadUsers]);
 
   const toggleInterest = (interest: string) => {
     setSelectedInterests((prev) =>
@@ -46,18 +71,30 @@ export default function DiscoverPage() {
     );
   };
 
-  const filteredUsers = mockUsers.filter((user) => {
+  const filteredUsers = users.filter((user) => {
     const matchesSearch =
       !searchQuery ||
-      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.department.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.interests.some((i) =>
+      user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.department?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (user.interests || []).some((i) =>
         i.toLowerCase().includes(searchQuery.toLowerCase())
       );
     const matchesInterests =
       selectedInterests.length === 0 ||
-      user.interests.some((i) => selectedInterests.includes(i));
+      (user.interests || []).some((i) => selectedInterests.includes(i));
     return matchesSearch && matchesInterests;
+  });
+
+  const mapUserToProfileCard = (user: User) => ({
+    id: user.userId,
+    name: user.name || "Unknown User",
+    role: user.role as "student" | "alumni" | "professor" | "mentor",
+    avatar: "",
+    department: user.department || "Unknown",
+    year: user.year,
+    bio: user.bio || "",
+    interests: user.interests || [],
+    lookingFor: user.lookingFor || [],
   });
 
   const getMatchScore = () => Math.floor(Math.random() * 30) + 70;
@@ -182,33 +219,53 @@ export default function DiscoverPage() {
 
           {["all", "students", "alumni", "faculty"].map((tab) => (
             <TabsContent key={tab} value={tab}>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {filteredUsers
-                  .filter((user) => {
-                    if (tab === "all") return true;
-                    if (tab === "students") return user.role === "student";
-                    if (tab === "alumni") return user.role === "alumni";
-                    if (tab === "faculty")
-                      return (
-                        user.role === "professor" || user.role === "mentor"
-                      );
-                    return true;
-                  })
-                  .map((user) => (
-                    <ProfileCard
-                      key={user.id}
-                      user={user}
-                      matchScore={getMatchScore()}
-                    />
-                  ))}
-              </div>
-              {filteredUsers.length === 0 && (
-                <div className="py-16 text-center">
-                  <Search className="mx-auto h-10 w-10 text-gray-300 mb-3" />
-                  <p className="text-sm text-gray-500">
-                    No matches found. Try adjusting your filters.
-                  </p>
+              {isLoading ? (
+                <div className="flex justify-center py-16">
+                  <Loader2 className="h-8 w-8 animate-spin text-[#002A5C]" />
                 </div>
+              ) : error ? (
+                <div className="py-16 text-center">
+                  <p className="text-sm text-red-500">{error}</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-4"
+                    onClick={loadUsers}
+                  >
+                    Retry
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {filteredUsers
+                      .filter((user) => {
+                        if (tab === "all") return true;
+                        if (tab === "students") return user.role === "student";
+                        if (tab === "alumni") return user.role === "alumni";
+                        if (tab === "faculty")
+                          return (
+                            user.role === "professor" || user.role === "mentor"
+                          );
+                        return true;
+                      })
+                      .map((user) => (
+                        <ProfileCard
+                          key={user.userId}
+                          user={mapUserToProfileCard(user)}
+                          matchScore={getMatchScore()}
+                        />
+                      ))}
+                  </div>
+                  {filteredUsers.length === 0 && (
+                    <div className="py-16 text-center">
+                      <Search className="mx-auto h-10 w-10 text-gray-300 mb-3" />
+                      <p className="text-sm text-gray-500">
+                        No matches found. Try adjusting your filters.
+                      </p>
+                    </div>
+                  )}
+                </>
               )}
             </TabsContent>
           ))}

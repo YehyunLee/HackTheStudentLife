@@ -132,7 +132,9 @@ export async function fetchCurrentUser(): Promise<User> {
   const response = await fetch(`${API_BASE_URL}/users/me`, { headers });
   
   if (!response.ok) {
-    throw new Error(`Failed to fetch user: ${response.statusText}`);
+    const errorText = await response.text();
+    console.error('fetchCurrentUser error:', response.status, errorText);
+    throw new Error(`Failed to fetch user: ${response.status} ${response.statusText}`);
   }
   
   const data = await response.json();
@@ -149,6 +151,30 @@ export async function updateCurrentUser(updates: Partial<User>): Promise<User> {
   
   if (!response.ok) {
     throw new Error(`Failed to update user: ${response.statusText}`);
+  }
+  
+  const data = await response.json();
+  return data.user;
+}
+
+export async function fetchUsers(): Promise<User[]> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${API_BASE_URL}/users`, { headers });
+  
+  if (!response.ok) {
+    throw new Error(`Failed to fetch users: ${response.statusText}`);
+  }
+  
+  const data = await response.json();
+  return data.users || [];
+}
+
+export async function fetchUserById(userId: string): Promise<User> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${API_BASE_URL}/users/${userId}`, { headers });
+  
+  if (!response.ok) {
+    throw new Error(`Failed to fetch user: ${response.statusText}`);
   }
   
   const data = await response.json();

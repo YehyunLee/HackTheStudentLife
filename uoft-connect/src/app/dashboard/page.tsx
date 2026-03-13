@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/lib/auth-context";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { mockUsers, mockPosts } from "@/lib/mock-data";
+import { fetchPosts, fetchUsers, type Post, type User } from "@/lib/api";
 import {
   Users,
   MessageCircle,
@@ -21,6 +22,7 @@ import {
   Bell,
   Star,
   Sparkles,
+  Loader2,
 } from "lucide-react";
 
 function getInitials(name: string) {
@@ -31,36 +33,6 @@ function getInitials(name: string) {
     .toUpperCase();
 }
 
-const stats = [
-  {
-    label: "Profile Views",
-    value: "142",
-    change: "+12%",
-    icon: Eye,
-    color: "text-blue-600 bg-blue-50",
-  },
-  {
-    label: "Connections",
-    value: "28",
-    change: "+5",
-    icon: Users,
-    color: "text-emerald-600 bg-emerald-50",
-  },
-  {
-    label: "Messages",
-    value: "16",
-    change: "3 new",
-    icon: MessageCircle,
-    color: "text-violet-600 bg-violet-50",
-  },
-  {
-    label: "Post Engagement",
-    value: "89%",
-    change: "+8%",
-    icon: TrendingUp,
-    color: "text-amber-600 bg-amber-50",
-  },
-];
 
 const upcomingEvents = [
   {
@@ -80,34 +52,87 @@ const upcomingEvents = [
   },
 ];
 
-const pendingRequests = [
-  {
-    user: mockUsers[0],
-    message: "Interested in your NLP research opportunities",
-    time: "2h ago",
-  },
-  {
-    user: mockUsers[3],
-    message: "Would love to discuss data pipeline collaboration",
-    time: "5h ago",
-  },
-  {
-    user: mockUsers[6],
-    message: "Seeking beginner-friendly mentorship in cloud computing",
-    time: "1d ago",
-  },
-];
 
-const topInterests = [
-  { tag: "Machine Learning", count: 45 },
-  { tag: "Cloud Computing", count: 38 },
-  { tag: "AWS", count: 32 },
-  { tag: "Career Mentoring", count: 28 },
-  { tag: "Research", count: 24 },
-];
 
 export default function DashboardPage() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const loadData = useCallback(async () => {
+    if (!isAuthenticated) {
+      setIsLoading(false);
+      return;
+    }
+    try {
+      setIsLoading(true);
+      const [postsData, usersData] = await Promise.all([
+        fetchPosts(),
+        fetchUsers(),
+      ]);
+      setPosts(postsData);
+      setUsers(usersData);
+    } catch (err) {
+      console.error("Failed to load dashboard data", err);
+      setError("Unable to load dashboard. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const myPosts = posts.filter((p) => p.authorId === user?.userId);
+  const totalLikes = myPosts.reduce((sum, p) => sum + (p.likes || 0), 0);
+  const totalReplies = myPosts.reduce((sum, p) => sum + (p.replies || 0), 0);
+  const studentUsers = users.filter((u) => u.role === "student");
+  
+  const interestCounts = users.reduce((acc, user) => {
+    (user.interests || []).forEach((interest) => {
+      acc[interest] = (acc[interest] || 0) + 1;
+    });
+    return acc;
+  }, {} as Record<string, number>);
+  
+  const topInterests = Object.entries(interestCounts)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 5)
+    .map(([tag, count]) => ({ tag, count }));
+
+  const stats = [
+    {
+      label: "Total Posts",
+      value: myPosts.length.toString(),
+      change: `${posts.length} total`,
+      icon: MessageCircle,
+      color: "text-blue-600 bg-blue-50",
+    },
+    {
+      label: "Total Users",
+      value: users.length.toString(),
+      change: `${studentUsers.length} students`,
+      icon: Users,
+      color: "text-emerald-600 bg-emerald-50",
+    },
+    {
+      label: "Post Likes",
+      value: totalLikes.toString(),
+      change: `${myPosts.length} posts`,
+      icon: Star,
+      color: "text-violet-600 bg-violet-50",
+    },
+    {
+      label: "Post Replies",
+      value: totalReplies.toString(),
+      change: `${myPosts.length} posts`,
+      icon: TrendingUp,
+      color: "text-amber-600 bg-amber-50",
+    },
+  ];
 
   if (!isAuthenticated) {
     return (
@@ -129,15 +154,36 @@ export default function DashboardPage() {
     );
   }
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-[#002A5C]" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+        {error && (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            {error}
+            <Button
+              variant="outline"
+              size="sm"
+              className="ml-4"
+              onClick={loadData}
+            >
+              Retry
+            </Button>
+          </div>
+        )}
         {/* Header */}
         <div className="mb-8 flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-bold text-[#002A5C]">Dashboard</h1>
             <p className="mt-1 text-sm text-gray-500">
-              Professional overview for faculty and mentors
+              Community overview and analytics
             </p>
           </div>
           <Button
@@ -188,64 +234,59 @@ export default function DashboardPage() {
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Left Column */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Pending Outreach Requests */}
+            {/* Recent Community Activity */}
             <Card>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base font-semibold flex items-center gap-2">
                     <Target className="h-4 w-4 text-[#002A5C]" />
-                    Pending Outreach
+                    Recent Community Activity
                   </CardTitle>
                   <Badge variant="secondary" className="text-xs">
-                    {pendingRequests.length} new
+                    {posts.length} posts
                   </Badge>
                 </div>
               </CardHeader>
               <CardContent className="space-y-1 pt-0">
-                {pendingRequests.map((req, idx) => (
-                  <div key={idx}>
+                {posts.slice(0, 3).map((post, idx) => (
+                  <div key={post.postId}>
                     <div className="flex items-start gap-3 py-3">
                       <Avatar className="h-9 w-9 shrink-0">
                         <AvatarFallback className="bg-[#002A5C] text-white text-xs">
-                          {getInitials(req.user.name)}
+                          {getInitials(post.author.name)}
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-medium">
-                            {req.user.name}
+                            {post.author.name}
                           </span>
                           <span className="text-[10px] text-gray-400 shrink-0 ml-2">
-                            {req.time}
+                            {post.createdAt}
                           </span>
                         </div>
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          {req.message}
+                        <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
+                          {post.content}
                         </p>
-                        <div className="flex gap-2 mt-2">
-                          <Button
-                            size="sm"
-                            className="h-7 text-[11px] bg-[#002A5C] hover:bg-[#002A5C]/90"
-                          >
-                            Accept
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-[11px]"
-                          >
-                            View Profile
-                          </Button>
+                        <div className="flex gap-3 mt-2 text-xs text-gray-400">
+                          <span className="flex items-center gap-1">
+                            <Star className="h-3 w-3" />
+                            {post.likes}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <MessageCircle className="h-3 w-3" />
+                            {post.replies}
+                          </span>
                         </div>
                       </div>
                     </div>
-                    {idx < pendingRequests.length - 1 && <Separator />}
+                    {idx < 2 && <Separator />}
                   </div>
                 ))}
               </CardContent>
             </Card>
 
-            {/* Recent Post Performance */}
+            {/* Your Post Performance */}
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -254,16 +295,14 @@ export default function DashboardPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-0 space-y-3">
-                {mockPosts
-                  .filter(
-                    (p) =>
-                      p.author.role === "professor" ||
-                      p.author.role === "alumni"
-                  )
-                  .slice(0, 3)
-                  .map((post) => (
+                {myPosts.length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center py-4">
+                    You haven't created any posts yet.
+                  </p>
+                ) : (
+                  myPosts.slice(0, 3).map((post) => (
                     <div
-                      key={post.id}
+                      key={post.postId}
                       className="flex items-start gap-3 rounded-lg border p-3 hover:bg-gray-50 transition-colors"
                     >
                       <div className="flex-1 min-w-0">
@@ -271,10 +310,6 @@ export default function DashboardPage() {
                           {post.content}
                         </p>
                         <div className="flex items-center gap-4 mt-2">
-                          <span className="flex items-center gap-1 text-xs text-gray-400">
-                            <Eye className="h-3 w-3" />
-                            {Math.floor(Math.random() * 200 + 50)} views
-                          </span>
                           <span className="flex items-center gap-1 text-xs text-gray-400">
                             <Star className="h-3 w-3" />
                             {post.likes} likes
@@ -287,7 +322,8 @@ export default function DashboardPage() {
                       </div>
                       <ChevronRight className="h-4 w-4 text-gray-300 shrink-0 mt-1" />
                     </div>
-                  ))}
+                  ))
+                )}
               </CardContent>
             </Card>
           </div>
@@ -368,32 +404,29 @@ export default function DashboardPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-0 space-y-3">
-                {mockUsers
-                  .filter((u) => u.role === "student")
-                  .slice(0, 3)
-                  .map((user) => (
-                    <div
-                      key={user.id}
-                      className="flex items-center gap-3 rounded-lg border p-3 hover:bg-gray-50 transition-colors cursor-pointer"
-                    >
-                      <Avatar className="h-8 w-8">
-                        <AvatarFallback className="bg-sky-100 text-sky-700 text-xs">
-                          {getInitials(user.name)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <span className="text-sm font-medium block truncate">
-                          {user.name}
-                        </span>
-                        <span className="text-[11px] text-gray-400">
-                          {user.department}
-                        </span>
-                      </div>
-                      <Badge className="bg-gradient-to-r from-[#002A5C] to-blue-500 text-white text-[10px] px-1.5">
-                        {Math.floor(Math.random() * 20 + 80)}%
-                      </Badge>
+                {studentUsers.slice(0, 3).map((user) => (
+                  <div
+                    key={user.userId}
+                    className="flex items-center gap-3 rounded-lg border p-3 hover:bg-gray-50 transition-colors cursor-pointer"
+                  >
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback className="bg-sky-100 text-sky-700 text-xs">
+                        {getInitials(user.name || "U")}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-medium block truncate">
+                        {user.name || "Unknown User"}
+                      </span>
+                      <span className="text-[11px] text-gray-400">
+                        {user.department || "Unknown"}
+                      </span>
                     </div>
-                  ))}
+                    <Badge className="bg-gradient-to-r from-[#002A5C] to-blue-500 text-white text-[10px] px-1.5">
+                      {Math.floor(Math.random() * 20 + 80)}%
+                    </Badge>
+                  </div>
+                ))}
                 <p className="text-[11px] text-gray-400 text-center pt-1">
                   Matched via Amazon Personalize
                 </p>
