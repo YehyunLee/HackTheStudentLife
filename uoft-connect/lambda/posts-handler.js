@@ -937,10 +937,36 @@ async function getConversation(conversationId, userId) {
     };
   }
 
+  // Enrich with other participant's profile
+  const otherParticipantId = conversation.participants?.find(p => p !== userId);
+  let otherParticipant = null;
+  
+  if (otherParticipantId) {
+    const userResult = await docClient.send(
+      new GetCommand({
+        TableName: USERS_TABLE,
+        Key: { userId: otherParticipantId },
+      })
+    );
+    if (userResult.Item) {
+      otherParticipant = {
+        userId: userResult.Item.userId,
+        name: userResult.Item.name,
+        email: userResult.Item.email,
+        role: userResult.Item.role,
+      };
+    }
+  }
+
   return {
     statusCode: 200,
     headers,
-    body: JSON.stringify({ conversation }),
+    body: JSON.stringify({ 
+      conversation: {
+        ...conversation,
+        otherParticipant,
+      }
+    }),
   };
 }
 
