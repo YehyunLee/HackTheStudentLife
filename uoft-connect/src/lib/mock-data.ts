@@ -287,7 +287,7 @@ export const mockResearchGroups: ResearchGroup[] = [
     longDescription: "The Centre for Quantum Information and Quantum Control (CQIQC) is an interdisciplinary research centre at the University of Toronto that brings together researchers from physics, computer science, mathematics, chemistry, and engineering. Our mission is to advance the frontiers of quantum information science and technology through collaborative research, education, and outreach. We focus on fundamental questions in quantum mechanics and their applications to quantum computing, quantum communication, and quantum sensing.",
     tags: ["Quantum Computing", "Quantum Information", "Physics", "Algorithms"],
     contact: "quantum@utoronto.ca",
-    contactPerson: mockUsers[4], // Dr. Emily Zhang as main contact
+    contactPerson: mockUsers[4], // Dr. Emily Zhang
     image: "https://cqiqc.physics.utoronto.ca/media/images/CQIQC-Connections_for_websiteSmall_Font.max-1280x450.png",
     url: "https://cqiqc.physics.utoronto.ca/",
     researchAreas: [
@@ -346,10 +346,8 @@ export const mockResearchGroups: ResearchGroup[] = [
       }
     ],
     members: [
-      mockUsers[4], // Dr. Emily Zhang (Quantum Computing)
-      mockUsers[5], // Dr. Robert Chen (Quantum Optics)
-      mockUsers[6], // Dr. Sarah Johnson (Quantum Cryptography)
-      mockUsers[7], // Dr. Michael Davis (Quantum Algorithms)
+      mockUsers[4], // Dr. Emily Zhang
+      mockUsers[1], // Dr. James Park
     ]
   },
   {
@@ -360,7 +358,7 @@ export const mockResearchGroups: ResearchGroup[] = [
     longDescription: "The Biological Physics group at the University of Toronto explores the fundamental physical principles underlying biological processes. Our research spans from single molecule biophysics to complex biological systems, using advanced experimental and computational techniques to understand how physics governs life at all scales.",
     tags: ["Biophysics", "Physics", "Biology", "Molecular Dynamics"],
     contact: "biophysics@physics.utoronto.ca",
-    contactPerson: mockUsers[8], // Dr. Lisa Wang
+    contactPerson: mockUsers[1], // Dr. James Park
     image: "https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=400&h=250&fit=crop",
     url: "https://www.physics.utoronto.ca/research/biological-physics/",
     researchAreas: [
@@ -408,7 +406,7 @@ export const mockResearchGroups: ResearchGroup[] = [
     longDescription: "The Earth, Atmospheric, and Planetary Physics group investigates the physical processes that shape our planet and other worlds in our solar system. Our research encompasses atmospheric dynamics, climate modeling, planetary interiors, ocean circulation, and geophysical fluid dynamics.",
     tags: ["Earth Science", "Atmospheric Physics", "Planetary Science", "Climate"],
     contact: "eapp@physics.utoronto.ca",
-    contactPerson: mockUsers[10], // Dr. Jennifer Martinez
+    contactPerson: mockUsers[4], // Dr. Emily Zhang
     image: "https://www.physics.utoronto.ca/media/images/EAPP_homepage_image_9Ewe8Nd.width-800_lexv3jE.jpg",
     url: "https://www.physics.utoronto.ca/research/eapp/",
     researchAreas: [
@@ -456,7 +454,7 @@ export const mockResearchGroups: ResearchGroup[] = [
     longDescription: "The Quantum Condensed Matter Physics group explores the collective behavior of quantum many-body systems. Our research focuses on emergent phenomena in strongly correlated electron systems, topological materials, superconductors, and quantum phase transitions.",
     tags: ["Condensed Matter", "Quantum Physics", "Materials Science", "Superconductivity"],
     contact: "qcmp@physics.utoronto.ca",
-    contactPerson: mockUsers[12], // Dr. Kevin Brown
+    contactPerson: mockUsers[7], // Dr. Robert Williams
     image: "https://www.physics.utoronto.ca/media/images/condensed_matter_lab.c6cd7673.original.fill-1200x450_TnGW2e4.jpg",
     url: "https://www.physics.utoronto.ca/research/quantum-condensed-matter-physics/",
     researchAreas: [
@@ -492,8 +490,8 @@ export const mockResearchGroups: ResearchGroup[] = [
       }
     ],
     members: [
-      mockUsers[12], // Dr. Kevin Brown
-      mockUsers[13], // Dr. Rachel Green
+      mockUsers[7], // Dr. Robert Williams
+      mockUsers[1], // Dr. James Park
     ]
   },
   {
