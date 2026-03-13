@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Home,
   Compass,
@@ -12,8 +13,11 @@ import {
   User,
   Menu,
   X,
+  LogIn,
+  LogOut,
 } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "@/lib/auth-context";
 
 const navLinks = [
   { href: "/", label: "Home", icon: Home },
@@ -26,6 +30,22 @@ const navLinks = [
 export function Navbar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { user, isAuthenticated, isLoading, signOut } = useAuth();
+
+  const getInitials = (name?: string, email?: string) => {
+    if (name) {
+      return name
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2);
+    }
+    if (email) {
+      return email.slice(0, 2).toUpperCase();
+    }
+    return "U";
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-white/80 backdrop-blur-md">
@@ -64,17 +84,39 @@ export function Navbar() {
           })}
         </nav>
 
-        {/* Profile + Mobile Toggle */}
+        {/* Auth + Profile + Mobile Toggle */}
         <div className="flex items-center gap-2">
-          <Link href="/profile">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="hidden rounded-full md:flex"
-            >
-              <User className="h-5 w-5" />
-            </Button>
-          </Link>
+          {isLoading ? (
+            <div className="h-8 w-8 animate-pulse rounded-full bg-gray-200" />
+          ) : isAuthenticated ? (
+            <>
+              <Link href="/profile">
+                <Avatar className="h-8 w-8 cursor-pointer border-2 border-[#002A5C]/10 hover:border-[#002A5C]/30 transition-colors">
+                  <AvatarFallback className="bg-[#002A5C] text-white text-xs">
+                    {getInitials(user?.name, user?.email)}
+                  </AvatarFallback>
+                </Avatar>
+              </Link>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="hidden md:flex text-gray-500 hover:text-red-500"
+                onClick={() => signOut()}
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </>
+          ) : (
+            <Link href="/login">
+              <Button
+                size="sm"
+                className="bg-[#002A5C] hover:bg-[#002A5C]/90 text-white"
+              >
+                <LogIn className="mr-1.5 h-4 w-4" />
+                Sign In
+              </Button>
+            </Link>
+          )}
           <Button
             variant="ghost"
             size="icon"
@@ -115,6 +157,25 @@ export function Navbar() {
               </Link>
             );
           })}
+          {isAuthenticated ? (
+            <div
+              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-red-500 hover:bg-red-50 cursor-pointer transition-colors"
+              onClick={() => {
+                signOut();
+                setMobileOpen(false);
+              }}
+            >
+              <LogOut className="h-4 w-4" />
+              Sign Out
+            </div>
+          ) : (
+            <Link href="/login" onClick={() => setMobileOpen(false)}>
+              <div className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-[#002A5C] hover:bg-[#002A5C]/5 transition-colors">
+                <LogIn className="h-4 w-4" />
+                Sign In
+              </div>
+            </Link>
+          )}
         </nav>
       )}
     </header>
