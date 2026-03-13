@@ -948,13 +948,13 @@ export default function FeedPage() {
                   <div className="rounded-lg border p-4">
                     <div className="flex items-center justify-between mb-3">
                       <h4 className="font-semibold text-sm text-gray-900">
-                        Replies ({selectedPost.replies || selectedPost.repliesList?.length || 0})
+                        Replies ({selectedPost.replies || (selectedPost as any).repliesList?.length || 0})
                       </h4>
                       <span className="text-xs text-gray-500">Newest first</span>
                     </div>
-                    {Array.isArray(selectedPost.repliesList) && selectedPost.repliesList.length > 0 ? (
+                    {Array.isArray((selectedPost as any).repliesList) && (selectedPost as any).repliesList.length > 0 ? (
                       <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
-                        {[...selectedPost.repliesList]
+                        {[...(selectedPost as any).repliesList]
                           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                           .map((reply) => (
                             <div key={reply.replyId} className="rounded-md border border-gray-100 p-3 bg-gray-50">

@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -11,8 +11,6 @@ import { useAuth } from "@/lib/auth-context";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProfileCard } from "@/components/profile-card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { fetchUsers, sendMessage, type User } from "@/lib/api";
 import {
   Search,
@@ -22,21 +20,37 @@ import {
   Briefcase,
   BookOpen,
   Users,
+  Users2,
+  Award,
+  FileText,
+  DollarSign,
+  MoreHorizontal,
   Loader2,
 } from "lucide-react";
-
-const interestFilters = [
-  "Machine Learning",
-  "Cloud Computing",
-  "Web Development",
-  "Data Science",
-  "HCI",
-  "Product Management",
-  "DevOps",
-  "Research",
-  "Career Mentoring",
-  "AWS",
-];
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
+  mockResearchGroups,
+  mockResearchPrograms,
+  mockProfessorOpportunities,
+  mockSummerResearchAwards,
+  mockTAshipOfferings,
+  mockOtherOpportunities,
+  type UserProfile,
+} from "@/lib/mock-data";
 
 export default function DiscoverPage() {
   const { isAuthenticated, user: currentUser } = useAuth();
@@ -48,66 +62,93 @@ export default function DiscoverPage() {
   const [error, setError] = useState("");
   const [connectTarget, setConnectTarget] = useState<User | null>(null);
   const [connectMessage, setConnectMessage] = useState("Hi! I'd love to connect and learn more about what you're working on.");
-  const [isSending, setIsSending] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
+  const [isSending, setIsSending] = useState(false);
   const [profileUser, setProfileUser] = useState<User | null>(null);
 
   const loadUsers = useCallback(async () => {
-    if (!isAuthenticated) {
-      setIsLoading(false);
-      return;
-    }
     try {
       setIsLoading(true);
-      const data = await fetchUsers();
-      setUsers(data);
+      setError("");
+      const fetchedUsers = await fetchUsers();
+      setUsers(fetchedUsers);
     } catch (err) {
       console.error("Failed to load users", err);
       setError("Unable to load users. Please try again.");
     } finally {
       setIsLoading(false);
     }
-  }, [isAuthenticated]);
+  }, []);
 
   useEffect(() => {
-    loadUsers();
-  }, [loadUsers]);
+    if (isAuthenticated) {
+      loadUsers();
+    }
+  }, [isAuthenticated, loadUsers]);
 
-  const toggleInterest = (interest: string) => {
-    setSelectedInterests((prev) =>
-      prev.includes(interest)
-        ? prev.filter((i) => i !== interest)
-        : [...prev, interest]
-    );
-  };
-
-  const filteredUsers = users.filter((user) => {
-    const matchesSearch =
-      !searchQuery ||
-      user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.department?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (user.interests || []).some((i) =>
-        i.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    const matchesInterests =
-      selectedInterests.length === 0 ||
-      (user.interests || []).some((i) => selectedInterests.includes(i));
-    return matchesSearch && matchesInterests;
-  });
-
-  const mapUserToProfileCard = (user: User) => ({
+  const mapUserToProfileCard = (user: User): UserProfile => ({
     id: user.userId,
-    name: user.name || "Unknown User",
-    role: user.role as "student" | "alumni" | "professor" | "mentor",
+    name: user.name,
+    role: user.role as any,
     avatar: "",
-    department: user.department || "Unknown",
+    department: user.department,
     year: user.year,
-    bio: user.bio || "",
-    interests: user.interests || [],
-    lookingFor: user.lookingFor || [],
+    bio: user.bio,
+    interests: user.interests,
+    lookingFor: user.lookingFor,
   });
 
   const getMatchScore = () => Math.floor(Math.random() * 30) + 70;
+
+  const filteredUsers = users.filter((user) =>
+    !searchQuery ||
+    user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    user.department.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    user.interests.some((interest) => interest.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  const filteredResearchGroups = mockResearchGroups.filter((group) =>
+    !searchQuery ||
+    group.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    group.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    group.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  const filteredResearchPrograms = mockResearchPrograms.filter((program) =>
+    !searchQuery ||
+    program.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    program.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    program.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  const filteredProfessorOpportunities = mockProfessorOpportunities.filter((opp) =>
+    !searchQuery ||
+    opp.projectTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    opp.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    opp.professor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    opp.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  const filteredSummerResearchAwards = mockSummerResearchAwards.filter((award) =>
+    !searchQuery ||
+    award.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    award.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    award.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  const filteredTAshipOfferings = mockTAshipOfferings.filter((ta) =>
+    !searchQuery ||
+    ta.course.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    ta.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    ta.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  const filteredOtherOpportunities = mockOtherOpportunities.filter((opp) =>
+    !searchQuery ||
+    opp.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    opp.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    opp.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
 
   if (!isAuthenticated) {
     return (
@@ -146,7 +187,7 @@ export default function DiscoverPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
               <Input
-                placeholder="Search by name, department, or interest..."
+                placeholder="Search opportunities, research, TAships..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10 bg-white"
@@ -159,35 +200,6 @@ export default function DiscoverPage() {
             >
               <SlidersHorizontal className="h-4 w-4" />
             </Button>
-          </div>
-
-          {/* Interest Tags */}
-          <div className="flex flex-wrap gap-2">
-            {interestFilters.map((interest) => (
-              <Badge
-                key={interest}
-                variant={
-                  selectedInterests.includes(interest) ? "default" : "outline"
-                }
-                className={`cursor-pointer text-xs transition-colors ${
-                  selectedInterests.includes(interest)
-                    ? "bg-[#002A5C] text-white hover:bg-[#002A5C]/90"
-                    : "hover:bg-[#002A5C]/5 hover:text-[#002A5C]"
-                }`}
-                onClick={() => toggleInterest(interest)}
-              >
-                {interest}
-              </Badge>
-            ))}
-            {selectedInterests.length > 0 && (
-              <Badge
-                variant="outline"
-                className="cursor-pointer text-xs text-red-500 hover:bg-red-50"
-                onClick={() => setSelectedInterests([])}
-              >
-                Clear all
-              </Badge>
-            )}
           </div>
         </div>
 
@@ -206,82 +218,305 @@ export default function DiscoverPage() {
           </div>
         </div>
 
-        {/* Tabs by Role */}
-        <Tabs defaultValue="all" className="space-y-6">
-          <TabsList className="bg-white shadow-sm">
-            <TabsTrigger value="all" className="text-xs gap-1.5">
-              <Users className="h-3.5 w-3.5" />
-              All
-            </TabsTrigger>
-            <TabsTrigger value="students" className="text-xs gap-1.5">
-              <GraduationCap className="h-3.5 w-3.5" />
-              Students
-            </TabsTrigger>
-            <TabsTrigger value="alumni" className="text-xs gap-1.5">
-              <Briefcase className="h-3.5 w-3.5" />
-              Alumni
-            </TabsTrigger>
-            <TabsTrigger value="faculty" className="text-xs gap-1.5">
-              <BookOpen className="h-3.5 w-3.5" />
-              Faculty & Mentors
-            </TabsTrigger>
-          </TabsList>
-
-          {["all", "students", "alumni", "faculty"].map((tab) => (
-            <TabsContent key={tab} value={tab}>
-              {isLoading ? (
-                <div className="flex justify-center py-16">
-                  <Loader2 className="h-8 w-8 animate-spin text-[#002A5C]" />
-                </div>
-              ) : error ? (
-                <div className="py-16 text-center">
-                  <p className="text-sm text-red-500">{error}</p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-4"
-                    onClick={loadUsers}
+        {/* Results Sections */}
+        <div className="space-y-8">
+          {/* Research Groups */}
+          {filteredResearchGroups.length > 0 && (
+            <div>
+              <h2 className="text-lg font-semibold text-[#002A5C] mb-4 flex items-center gap-2">
+                <Users2 className="h-5 w-5" />
+                Research Groups
+              </h2>
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {filteredResearchGroups.map((group) => (
+                  <Link
+                    key={group.id}
+                    href={group.url || "#"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block"
                   >
-                    Retry
-                  </Button>
-                </div>
-              ) : (
-                <>
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {filteredUsers
-                      .filter((user) => {
-                        if (tab === "all") return true;
-                        if (tab === "students") return user.role === "student";
-                        if (tab === "alumni") return user.role === "alumni";
-                        if (tab === "faculty")
-                          return (
-                            user.role === "professor" || user.role === "mentor"
-                          );
-                        return true;
-                      })
-                      .map((user) => (
-                        <ProfileCard
-                          key={user.userId}
-                          user={mapUserToProfileCard(user)}
-                          matchScore={getMatchScore()}
-                          onConnect={() => setConnectTarget(user)}
-                          onViewProfile={() => setProfileUser(user)}
+                    <Card className="overflow-hidden border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+                      {group.image && (
+                        <div className="aspect-video bg-gradient-to-br from-blue-50 to-blue-100 relative">
+                          <img
+                            src={group.image}
+                            alt={group.name}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-blue-500/10" />
+                        </div>
+                      )}
+                      <div className="p-4">
+                        <h3 className="font-semibold text-sm text-[#002A5C] mb-1">{group.name}</h3>
+                        <p className="text-xs text-gray-500 mb-2">{group.department}</p>
+                        <p className="text-xs text-gray-600 leading-relaxed line-clamp-2 mb-3">
+                          {group.description}
+                        </p>
+                        <div className="flex flex-wrap gap-1">
+                          {group.tags.slice(0, 3).map((tag) => (
+                            <Badge key={tag} variant="secondary" className="text-[10px] bg-blue-50 text-blue-700">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    </Card>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Research Programs */}
+          {filteredResearchPrograms.length > 0 && (
+            <div>
+              <h2 className="text-lg font-semibold text-[#002A5C] mb-4 flex items-center gap-2">
+                <BookOpen className="h-5 w-5" />
+                Research Programs
+              </h2>
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {filteredResearchPrograms.map((program) => (
+                  <Card key={program.id} className="overflow-hidden border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow">
+                    {program.image && (
+                      <div className="aspect-video bg-gradient-to-br from-green-50 to-green-100 relative">
+                        <img
+                          src={program.image}
+                          alt={program.title}
+                          className="w-full h-full object-cover"
                         />
-                      ))}
-                  </div>
-                  {filteredUsers.length === 0 && (
-                    <div className="py-16 text-center">
-                      <Search className="mx-auto h-10 w-10 text-gray-300 mb-3" />
-                      <p className="text-sm text-gray-500">
-                        No matches found. Try adjusting your filters.
+                        <div className="absolute inset-0 bg-green-500/10" />
+                      </div>
+                    )}
+                    <div className="p-4">
+                      <h3 className="font-semibold text-sm text-[#002A5C] mb-1">{program.title}</h3>
+                      <p className="text-xs text-gray-500 mb-2">{program.department}</p>
+                      <p className="text-xs text-gray-600 leading-relaxed line-clamp-2 mb-3">
+                        {program.description}
                       </p>
+                      <div className="flex flex-wrap gap-1">
+                        {program.tags.slice(0, 3).map((tag) => (
+                          <Badge key={tag} variant="secondary" className="text-[10px] bg-green-50 text-green-700">
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
                     </div>
-                  )}
-                </>
-              )}
-            </TabsContent>
-          ))}
-        </Tabs>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Professors / Projects Actively Searching For Students */}
+          {filteredProfessorOpportunities.length > 0 && (
+            <div>
+              <h2 className="text-lg font-semibold text-[#002A5C] mb-4 flex items-center gap-2">
+                <GraduationCap className="h-5 w-5" />
+                Professors / Projects Actively Searching For Students
+              </h2>
+              <div className="space-y-4">
+                {filteredProfessorOpportunities.map((opp) => (
+                  <Link
+                    key={opp.id}
+                    href={`/projects/${opp.id}`}
+                    className="block rounded-xl border border-gray-200 bg-white shadow-sm hover:shadow-lg transition-shadow"
+                  >
+                    <div className="flex flex-col lg:flex-row">
+                      <div className="flex-1 p-4">
+                        <div className="flex items-start gap-4">
+                          {opp.image ? (
+                            <img
+                              src={opp.image}
+                              alt={opp.projectTitle}
+                              className="h-20 w-20 rounded-lg object-cover"
+                            />
+                          ) : (
+                            <div className="h-20 w-20 rounded-lg bg-gray-100" />
+                          )}
+                          <div>
+                            <h3 className="text-base font-semibold text-[#002A5C]">
+                              {opp.projectTitle}
+                            </h3>
+                            <p className="text-xs text-gray-500">
+                              {opp.professor.name} — {opp.professor.department}
+                            </p>
+                          </div>
+                        </div>
+                        <p className="mt-3 text-sm text-gray-600 line-clamp-3">
+                          {opp.description}
+                        </p>
+                      </div>
+
+                      <div className="flex flex-col justify-between gap-3 border-t border-gray-100 px-4 py-3 lg:border-t-0 lg:border-l lg:w-56">
+                        <div className="flex flex-wrap gap-2">
+                          {opp.tags.slice(0, 2).map((tag) => (
+                            <Badge key={tag} variant="outline" className="text-[10px]">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {opp.eligibility && (
+                            <div>
+                              <span className="font-semibold">Eligibility:</span>{" "}
+                              {opp.eligibility}
+                            </div>
+                          )}
+                          {opp.deadline && (
+                            <div>
+                              <span className="font-semibold">Deadline:</span>{" "}
+                              {opp.deadline}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Summer Research/Awards */}
+          {filteredSummerResearchAwards.length > 0 && (
+            <div>
+              <h2 className="text-lg font-semibold text-[#002A5C] mb-4 flex items-center gap-2">
+                <Award className="h-5 w-5" />
+                Summer Research/Awards
+              </h2>
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {filteredSummerResearchAwards.map((award) => (
+                  <Card key={award.id} className="overflow-hidden border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow">
+                    {award.image && (
+                      <div className="aspect-video bg-gradient-to-br from-orange-50 to-orange-100 relative">
+                        <img
+                          src={award.image}
+                          alt={award.title}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-orange-500/10" />
+                      </div>
+                    )}
+                    <div className="p-4">
+                      <h3 className="font-semibold text-sm text-[#002A5C] mb-1">{award.title}</h3>
+                      <p className="text-xs text-gray-500 mb-2">{award.organization}</p>
+                      <p className="text-xs text-gray-600 leading-relaxed line-clamp-2 mb-2">
+                        {award.description}
+                      </p>
+                      <p className="text-xs text-green-600 mb-1">Stipend: {award.stipend}</p>
+                      <p className="text-xs text-red-600 mb-3">Deadline: {award.deadline}</p>
+                      <div className="flex flex-wrap gap-1">
+                        {award.tags.slice(0, 3).map((tag) => (
+                          <Badge key={tag} variant="secondary" className="text-[10px] bg-orange-50 text-orange-700">
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* TAship Offerings */}
+          {filteredTAshipOfferings.length > 0 && (
+            <div>
+              <h2 className="text-lg font-semibold text-[#002A5C] mb-4 flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                TAship Offerings
+              </h2>
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {filteredTAshipOfferings.map((ta) => (
+                  <Card key={ta.id} className="overflow-hidden border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow">
+                    {ta.image && (
+                      <div className="aspect-video bg-gradient-to-br from-red-50 to-red-100 relative">
+                        <img
+                          src={ta.image}
+                          alt={ta.course}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-red-500/10" />
+                      </div>
+                    )}
+                    <div className="p-4">
+                      <h3 className="font-semibold text-sm text-[#002A5C] mb-1">{ta.course}</h3>
+                      <p className="text-xs text-gray-500 mb-2">{ta.professor} - {ta.department}</p>
+                      <p className="text-xs text-gray-600 leading-relaxed line-clamp-2 mb-2">
+                        {ta.description}
+                      </p>
+                      <p className="text-xs text-blue-600 mb-1">Hours: {ta.hours}</p>
+                      <p className="text-xs text-green-600 mb-3">Pay: {ta.pay}</p>
+                      <div className="flex flex-wrap gap-1">
+                        {ta.tags.slice(0, 3).map((tag) => (
+                          <Badge key={tag} variant="secondary" className="text-[10px] bg-red-50 text-red-700">
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Other Opportunities */}
+          {filteredOtherOpportunities.length > 0 && (
+            <div>
+              <h2 className="text-lg font-semibold text-[#002A5C] mb-4 flex items-center gap-2">
+                <MoreHorizontal className="h-5 w-5" />
+                Other Opportunities
+              </h2>
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {filteredOtherOpportunities.map((opp) => (
+                  <Card key={opp.id} className="overflow-hidden border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow">
+                    {opp.image && (
+                      <div className="aspect-video bg-gradient-to-br from-gray-50 to-gray-100 relative">
+                        <img
+                          src={opp.image}
+                          alt={opp.title}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-gray-500/10" />
+                      </div>
+                    )}
+                    <div className="p-4">
+                      <h3 className="font-semibold text-sm text-[#002A5C] mb-1">{opp.title}</h3>
+                      <p className="text-xs text-gray-500 mb-2">{opp.organization} - {opp.type}</p>
+                      <p className="text-xs text-gray-600 leading-relaxed line-clamp-2 mb-3">
+                        {opp.description}
+                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        {opp.tags.slice(0, 3).map((tag) => (
+                          <Badge key={tag} variant="secondary" className="text-[10px] bg-gray-50 text-gray-700">
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* No Results */}
+          {filteredResearchGroups.length === 0 &&
+           filteredResearchPrograms.length === 0 &&
+           filteredProfessorOpportunities.length === 0 &&
+           filteredSummerResearchAwards.length === 0 &&
+           filteredTAshipOfferings.length === 0 &&
+           filteredOtherOpportunities.length === 0 && (
+            <div className="py-16 text-center">
+              <Search className="mx-auto h-10 w-10 text-gray-300 mb-3" />
+              <p className="text-sm text-gray-500">
+                No matches found. Try adjusting your search.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
 
       <Dialog open={!!connectTarget} onOpenChange={(open) => {
@@ -361,67 +596,67 @@ export default function DiscoverPage() {
         </DialogContent>
       </Dialog>
 
-      <Sheet open={!!profileUser} onOpenChange={(open) => {
-        if (!open) setProfileUser(null);
-      }}>
-        <SheetContent className="w-full sm:max-w-md overflow-y-auto">
-          <SheetHeader className="mb-4">
-            <SheetTitle>Profile preview</SheetTitle>
-            <SheetDescription>Learn more before reaching out</SheetDescription>
-          </SheetHeader>
-          {profileUser && (
-            <div className="space-y-4 text-sm text-gray-700">
-              <div>
-                <p className="text-xl font-semibold text-[#002A5C]">{profileUser.name}</p>
-                <p className="text-xs text-gray-500">{profileUser.role} · {profileUser.department}</p>
+        <Sheet open={!!profileUser} onOpenChange={(open) => {
+          if (!open) setProfileUser(null);
+        }}>
+          <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+            <SheetHeader className="mb-4">
+              <SheetTitle>Profile preview</SheetTitle>
+              <SheetDescription>Learn more before reaching out</SheetDescription>
+            </SheetHeader>
+            {profileUser && (
+              <div className="space-y-4 text-sm text-gray-700">
+                <div>
+                  <p className="text-xl font-semibold text-[#002A5C]">{profileUser.name}</p>
+                  <p className="text-xs text-gray-500">{profileUser.role} · {profileUser.department}</p>
+                </div>
+                {profileUser.bio && (
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-gray-400">Bio</p>
+                    <p className="mt-1 text-sm text-gray-700 whitespace-pre-line">{profileUser.bio}</p>
+                  </div>
+                )}
+                {profileUser.interests?.length ? (
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-gray-400">Interests</p>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {profileUser.interests.map((interest) => (
+                        <Badge key={interest} variant="secondary" className="text-[10px]">
+                          {interest}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                {profileUser.lookingFor?.length ? (
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-gray-400">Looking for</p>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {profileUser.lookingFor.map((item) => (
+                        <Badge key={item} variant="outline" className="text-[10px] text-gray-600">
+                          {item}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                {profileUser.linkedin && (
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-gray-400">Links</p>
+                    <a
+                      href={profileUser.linkedin}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[#002A5C] underline break-words"
+                    >
+                      {profileUser.linkedin}
+                    </a>
+                  </div>
+                )}
               </div>
-              {profileUser.bio && (
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-gray-400">Bio</p>
-                  <p className="mt-1 text-sm text-gray-700 whitespace-pre-line">{profileUser.bio}</p>
-                </div>
-              )}
-              {profileUser.interests?.length ? (
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-gray-400">Interests</p>
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {profileUser.interests.map((interest) => (
-                      <Badge key={interest} variant="secondary" className="text-[10px]">
-                        {interest}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-              {profileUser.lookingFor?.length ? (
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-gray-400">Looking for</p>
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {profileUser.lookingFor.map((item) => (
-                      <Badge key={item} variant="outline" className="text-[10px] text-gray-600">
-                        {item}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-              {profileUser.linkedin && (
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-gray-400">Links</p>
-                  <a
-                    href={profileUser.linkedin}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-[#002A5C] underline break-words"
-                  >
-                    {profileUser.linkedin}
-                  </a>
-                </div>
-              )}
-            </div>
-          )}
-        </SheetContent>
-      </Sheet>
+            )}
+          </SheetContent>
+        </Sheet>
     </div>
   );
 }
