@@ -23,9 +23,12 @@ type Post = MockPost | ApiPost;
 type PostCardProps = {
   post: Post;
   isOwnPost?: boolean;
+  isLiked?: boolean;
   onView?: (post: Post) => void;
   onEdit?: (post: Post) => void;
   onDelete?: (post: Post) => void;
+  onLike?: (post: Post) => void;
+  onUnlike?: (post: Post) => void;
 };
 
 const visibilityIcon = {
@@ -58,9 +61,17 @@ const roleBadge = {
 
 const FALLBACK_ROLE_CLASS = "bg-gray-100 text-gray-600";
 
-export function PostCard({ post, isOwnPost, onView, onEdit, onDelete }: PostCardProps) {
+export function PostCard({ post, isOwnPost, isLiked, onView, onEdit, onDelete, onLike, onUnlike }: PostCardProps) {
   const authorRole = (post.author.role || "student") as keyof typeof roleBadge;
   const roleClass = roleBadge[authorRole] ?? FALLBACK_ROLE_CLASS;
+
+  const handleLikeClick = () => {
+    if (isLiked && onUnlike) {
+      onUnlike(post);
+    } else if (!isLiked && onLike) {
+      onLike(post);
+    }
+  };
 
   return (
     <Card className="transition-shadow hover:shadow-md">
@@ -113,8 +124,13 @@ export function PostCard({ post, isOwnPost, onView, onEdit, onDelete }: PostCard
       <CardFooter className="border-t pt-3">
         <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex gap-1">
-            <Button variant="ghost" size="sm" className="text-gray-500 hover:text-red-500 h-8 px-2">
-              <Heart className="mr-1 h-3.5 w-3.5" />
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className={`h-8 px-2 ${isLiked ? 'text-red-500' : 'text-gray-500 hover:text-red-500'}`}
+              onClick={handleLikeClick}
+            >
+              <Heart className={`mr-1 h-3.5 w-3.5 ${isLiked ? 'fill-current' : ''}`} />
               <span className="text-xs">{post.likes}</span>
             </Button>
             <Button variant="ghost" size="sm" className="text-gray-500 hover:text-[#002A5C] h-8 px-2">

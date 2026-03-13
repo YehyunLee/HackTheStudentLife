@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PostCard } from "@/components/post-card";
 import { mockPosts } from "@/lib/mock-data";
-import { fetchPosts, createPost, updatePost, deletePost, type Post as ApiPost } from "@/lib/api";
+import { fetchPosts, createPost, updatePost, deletePost, likePost, unlikePost, type Post as ApiPost } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import {
   PenSquare,
@@ -437,7 +437,7 @@ export default function FeedPage() {
     
     setIsDeleting(true);
     try {
-      await deletePost(post.postId);
+      await deletePost(post.postId, user?.userId);
       setPosts((prev) => prev.filter((p) => getPostKey(p) !== getPostKey(post)));
     } catch (err) {
       console.error('Failed to delete post', err);
@@ -473,6 +473,32 @@ export default function FeedPage() {
     }
   };
 
+  const handleLikePost = async (post: FeedPost) => {
+    if (!isAuthenticated || !('postId' in post)) return;
+    
+    try {
+      const updated = await likePost(post.postId, user?.userId);
+      setPosts((prev) =>
+        prev.map((p) => (getPostKey(p) === getPostKey(post) ? updated : p))
+      );
+    } catch (err) {
+      console.error('Failed to like post', err);
+    }
+  };
+
+  const handleUnlikePost = async (post: FeedPost) => {
+    if (!isAuthenticated || !('postId' in post)) return;
+    
+    try {
+      const updated = await unlikePost(post.postId, user?.userId);
+      setPosts((prev) =>
+        prev.map((p) => (getPostKey(p) === getPostKey(post) ? updated : p))
+      );
+    } catch (err) {
+      console.error('Failed to unlike post', err);
+    }
+  };
+
   const isOwnPost = (post: FeedPost) => {
     if (!user || !('postId' in post)) return false;
     if (post.authorId && user.userId && post.authorId === user.userId) {
@@ -482,6 +508,12 @@ export default function FeedPage() {
       return post.author.email.toLowerCase() === user.email.toLowerCase();
     }
     return false;
+  };
+
+  const isPostLiked = (post: FeedPost) => {
+    if (!user || !('postId' in post)) return false;
+    const apiPost = post as ApiPost;
+    return apiPost.likedBy?.includes(user.userId || '') || false;
   };
 
   const displayPosts: FeedPost[] = isAuthenticated && posts.length > 0 ? posts : mockPosts;
@@ -684,9 +716,12 @@ export default function FeedPage() {
                   key={getPostKey(post)}
                   post={post}
                   isOwnPost={isOwnPost(post)}
+                  isLiked={isPostLiked(post)}
                   onView={handleViewPost}
                   onEdit={handleEditPost}
                   onDelete={handleDeletePost}
+                  onLike={handleLikePost}
+                  onUnlike={handleUnlikePost}
                 />
               ))
             )}
@@ -698,9 +733,12 @@ export default function FeedPage() {
                 key={`${getPostKey(post)}-trending`}
                 post={post}
                 isOwnPost={isOwnPost(post)}
+                isLiked={isPostLiked(post)}
                 onView={handleViewPost}
                 onEdit={handleEditPost}
                 onDelete={handleDeletePost}
+                onLike={handleLikePost}
+                onUnlike={handleUnlikePost}
               />
             ))}
           </TabsContent>
@@ -720,9 +758,12 @@ export default function FeedPage() {
                 key={`${getPostKey(post)}-for-you-${idx}`}
                 post={post}
                 isOwnPost={isOwnPost(post)}
+                isLiked={isPostLiked(post)}
                 onView={handleViewPost}
                 onEdit={handleEditPost}
                 onDelete={handleDeletePost}
+                onLike={handleLikePost}
+                onUnlike={handleUnlikePost}
               />
             ))}
           </TabsContent>

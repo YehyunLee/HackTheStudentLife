@@ -51,7 +51,7 @@ const sanitizeUserUpdates = (updates) => {
 const headers = {
   "Content-Type": "application/json",
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "Content-Type,Authorization",
+  "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Client-User-Id",
   "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
 };
 
@@ -120,11 +120,8 @@ exports.handler = async (event) => {
 
     if (path.startsWith("/posts/") && method === "DELETE") {
       const postId = path.split("/")[2];
-      const headerUserId =
-        event.headers?.["x-client-user-id"] ||
-        event.headers?.["X-Client-UserId"] ||
-        event.headers?.["X-Client-Userid"];
-      const effectiveUserId = userId === "anonymous" ? headerUserId || userId : userId;
+      const body = JSON.parse(event.body || "{}");
+      const effectiveUserId = userId === "anonymous" ? (body.clientUserId || userId) : userId;
       return await deletePost(postId, effectiveUserId);
     }
 
@@ -154,6 +151,18 @@ exports.handler = async (event) => {
         return await getOrCreateUser(userId, userEmail, userName);
       }
       return await getUserById(targetUserId);
+    }
+
+    if (path.match(/^\/posts\/[^/]+\/like$/) && method === "POST") {
+      const postId = path.split("/")[2];
+      const effectiveUserId = userId === "anonymous" ? (JSON.parse(event.body || "{}").clientUserId || userId) : userId;
+      return await likePost(postId, effectiveUserId);
+    }
+
+    if (path.match(/^\/posts\/[^/]+\/unlike$/) && method === "POST") {
+      const postId = path.split("/")[2];
+      const effectiveUserId = userId === "anonymous" ? (JSON.parse(event.body || "{}").clientUserId || userId) : userId;
+      return await unlikePost(postId, effectiveUserId);
     }
 
     return {
@@ -551,6 +560,102 @@ async function listUsers() {
     statusCode: 200,
     headers,
     body: JSON.stringify({ users }),
+  };
+}
+
+async function likePost(postId, userId) {
+  const existing = await docClient.send(
+    new GetCommand({
+      TableName: POSTS_TABLE,
+      Key: { postId },
+    })
+  );
+
+  if (!existing.Item) {
+    return {
+      statusCode: 404,
+      headers,
+      body: JSON.stringify({ error: "Post not found" }),
+    };
+  }
+
+  const post = existing.Item;
+  const likedBy = post.likedBy || [];
+  
+  if (likedBy.includes(userId)) {
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({ post }),
+    };
+  }
+
+  const updatedPost = {
+    ...post,
+    likes: (post.likes || 0) + 1,
+    likedBy: [...likedBy, userId],
+    updatedAt: new Date().toISOString(),
+  };
+
+  await docClient.send(
+    new PutCommand({
+      TableName: POSTS_TABLE,
+      Item: updatedPost,
+    })
+  );
+
+  return {
+    statusCode: 200,
+    headers,
+    body: JSON.stringify({ post: updatedPost }),
+  };
+}
+
+async function unlikePost(postId, userId) {
+  const existing = await docClient.send(
+    new GetCommand({
+      TableName: POSTS_TABLE,
+      Key: { postId },
+    })
+  );
+
+  if (!existing.Item) {
+    return {
+      statusCode: 404,
+      headers,
+      body: JSON.stringify({ error: "Post not found" }),
+    };
+  }
+
+  const post = existing.Item;
+  const likedBy = post.likedBy || [];
+  
+  if (!likedBy.includes(userId)) {
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({ post }),
+    };
+  }
+
+  const updatedPost = {
+    ...post,
+    likes: Math.max((post.likes || 0) - 1, 0),
+    likedBy: likedBy.filter(id => id !== userId),
+    updatedAt: new Date().toISOString(),
+  };
+
+  await docClient.send(
+    new PutCommand({
+      TableName: POSTS_TABLE,
+      Item: updatedPost,
+    })
+  );
+
+  return {
+    statusCode: 200,
+    headers,
+    body: JSON.stringify({ post: updatedPost }),
   };
 }
 

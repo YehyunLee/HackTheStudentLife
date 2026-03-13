@@ -35,6 +35,7 @@ export interface Post {
   type: "looking-for" | "offering" | "discussion";
   visibility: "everyone" | "students" | "faculty" | "alumni";
   likes: number;
+  likedBy?: string[];
   replies: number;
   createdAt: string;
   updatedAt: string;
@@ -98,15 +99,19 @@ export async function createPost(post: {
   return data.post;
 }
 
-export async function deletePost(postId: string): Promise<void> {
+export async function deletePost(postId: string, userId?: string): Promise<void> {
   const headers = await getAuthHeaders();
+  
   const response = await fetch(`${API_BASE_URL}/posts/${postId}`, {
     method: "DELETE",
     headers,
+    body: JSON.stringify({ clientUserId: userId }),
   });
   
   if (!response.ok) {
-    throw new Error(`Failed to delete post: ${response.statusText}`);
+    const errorText = await response.text();
+    console.error('deletePost error:', response.status, errorText);
+    throw new Error(`Failed to delete post: ${response.status} ${response.statusText}`);
   }
 }
 
@@ -188,4 +193,40 @@ export async function fetchUserById(userId: string): Promise<User> {
   
   const data = await response.json();
   return data.user;
+}
+
+export async function likePost(postId: string, userId?: string): Promise<Post> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${API_BASE_URL}/posts/${postId}/like`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ clientUserId: userId }),
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('likePost error:', response.status, errorText);
+    throw new Error(`Failed to like post: ${response.status}`);
+  }
+  
+  const data = await response.json();
+  return data.post;
+}
+
+export async function unlikePost(postId: string, userId?: string): Promise<Post> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${API_BASE_URL}/posts/${postId}/unlike`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ clientUserId: userId }),
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('unlikePost error:', response.status, errorText);
+    throw new Error(`Failed to unlike post: ${response.status}`);
+  }
+  
+  const data = await response.json();
+  return data.post;
 }
