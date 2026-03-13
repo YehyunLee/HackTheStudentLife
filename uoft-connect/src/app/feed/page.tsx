@@ -9,8 +9,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PostCard } from "@/components/post-card";
 import { mockPosts } from "@/lib/mock-data";
-import { fetchPosts, createPost, Post } from "@/lib/api";
-import { useAuth } from "@/lib/auth-context";
 import {
   PenSquare,
   Eye,
@@ -29,17 +27,16 @@ import {
   MessageCircle,
   Share2,
   X,
-  Loader2,
 } from "lucide-react";
 
-const visibilityOptions: { value: "everyone" | "students" | "faculty" | "alumni"; label: string; icon: typeof Eye }[] = [
+const visibilityOptions = [
   { value: "everyone", label: "Everyone", icon: Eye },
   { value: "students", label: "Students Only", icon: GraduationCap },
   { value: "faculty", label: "Faculty Only", icon: Users },
   { value: "alumni", label: "Alumni Only", icon: Lock },
 ];
 
-const postTypes: { value: "looking-for" | "offering" | "discussion"; label: string; color: string }[] = [
+const postTypes = [
   { value: "looking-for", label: "Looking For", color: "bg-blue-500" },
   { value: "offering", label: "Offering", color: "bg-green-500" },
   { value: "discussion", label: "Discussion", color: "bg-purple-500" },
@@ -61,50 +58,102 @@ function SwipeView({
   onClose: () => void;
 }) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [touchStart, setTouchStart] = useState(0);
-  const [touchEnd, setTouchEnd] = useState(0);
+  const [dragStartX, setDragStartX] = useState<number | null>(null);
+  const [dragDelta, setDragDelta] = useState(0);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [slideWidth, setSlideWidth] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const currentPost = posts[currentIndex];
+  const goNext = useCallback(() => {
+    setCurrentIndex((prev) => (prev + 1) % posts.length);
+  }, [posts.length]);
 
-  const goNext = () => {
-    if (currentIndex < posts.length - 1) {
-      setCurrentIndex(currentIndex + 1);
+  const goPrev = useCallback(() => {
+    setCurrentIndex((prev) => (prev - 1 + posts.length) % posts.length);
+  }, [posts.length]);
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (isTransitioning) return;
+    // Only start drag for primary pointer (left mouse / touch)
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    setDragStartX(e.clientX);
+    setDragDelta(0);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (dragStartX === null) return;
+
+    const raw = e.clientX;
+    const delta = raw - dragStartX;
+    const clamp = slideWidth ? Math.max(Math.min(delta, slideWidth), -slideWidth) : delta;
+
+    setDragDelta(clamp);
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (dragStartX === null) return;
+
+    const threshold = slideWidth ? slideWidth * 0.4 : 75;
+    const shouldNext = dragDelta < -threshold;
+    const shouldPrev = dragDelta > threshold;
+
+    if (!shouldNext && !shouldPrev) {
+      setIsTransitioning(true);
+      setDragDelta(0);
+      window.setTimeout(() => {
+        setIsTransitioning(false);
+      }, 220);
+      setDragStartX(null);
+      e.currentTarget.releasePointerCapture(e.pointerId);
+      return;
     }
+
+    setIsTransitioning(true);
+    const targetDelta = shouldNext ? -slideWidth : slideWidth;
+    setDragDelta(targetDelta);
+    setDragStartX(null);
+
+    window.setTimeout(() => {
+      if (shouldNext) goNext();
+      if (shouldPrev) goPrev();
+      setIsTransitioning(false);
+      setDragDelta(0);
+    }, 220);
+
+    e.currentTarget.releasePointerCapture(e.pointerId);
   };
 
-  const goPrev = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
-    }
-  };
+  const isDragging = dragStartX !== null;
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    setTouchStart(e.targetTouches[0].clientX);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    setTouchEnd(e.targetTouches[0].clientX);
-  };
-
-  const handleTouchEnd = () => {
-    if (touchStart - touchEnd > 75) {
-      goNext();
-    }
-    if (touchStart - touchEnd < -75) {
-      goPrev();
-    }
-  };
+  const prevIndex = (currentIndex - 1 + posts.length) % posts.length;
+  const nextIndex = (currentIndex + 1) % posts.length;
 
   useEffect(() => {
+    const updateSizes = () => {
+      const width = window.innerWidth;
+      // Keep the active slide roughly screen width while leaving a small peek on each side
+      setSlideWidth(Math.max(width - 64, 1));
+    };
+
+    updateSizes();
+
+    const handleResize = () => updateSizes();
+    window.addEventListener("resize", handleResize);
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "ArrowRight") goNext();
       if (e.key === "ArrowLeft") goPrev();
       if (e.key === "Escape") onClose();
     };
+
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [currentIndex]);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [goNext, goPrev, onClose]);
 
   return (
     <div className="fixed inset-0 z-50 bg-black">
@@ -135,10 +184,11 @@ function SwipeView({
       {/* Main content */}
       <div
         ref={containerRef}
-        className="h-full flex items-center justify-center px-4"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
+        className="h-full flex items-center justify-center px-4 cursor-grab active:cursor-grabbing"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
       >
         {/* Left arrow */}
         <button
@@ -151,95 +201,120 @@ function SwipeView({
           <ChevronLeft className="h-6 w-6 text-white" />
         </button>
 
-        {/* Story card */}
-        <div className="w-full max-w-md mx-auto">
-          <div className="bg-gradient-to-br from-[#002A5C] to-[#1a5fb4] rounded-2xl p-6 min-h-[70vh] flex flex-col">
-            {/* Author header */}
-            <div className="flex items-center gap-3 mb-6">
-              <Avatar className="h-12 w-12 border-2 border-white/30">
-                <AvatarFallback className="bg-white/20 text-white font-semibold">
-                  {getInitials(currentPost.author.name)}
-                </AvatarFallback>
-              </Avatar>
-              <div>
-                <p className="text-white font-semibold">
-                  {currentPost.author.name}
-                </p>
-                <p className="text-white/60 text-sm">
-                  {currentPost.author.department} · {currentPost.createdAt}
-                </p>
-              </div>
-            </div>
+        {/* Story carousel (shows adjacent stories while dragging) */}
+        <div className="w-full max-w-md mx-auto overflow-hidden">
+          <div
+            className="flex w-full"
+            style={{
+              transform:
+                isDragging || isTransitioning
+                  ? `translateX(calc(-100% + ${dragDelta}px))`
+                  : "translateX(-100%)",
+              transition: isDragging
+                ? "none"
+                : isTransitioning
+                ? "transform 200ms ease"
+                : "none",
+              touchAction: "pan-y",
+            }}
+          >
+            {[prevIndex, currentIndex, nextIndex].map((index) => {
+              const post = posts[index];
+              const isCurrent = index === currentIndex;
+              return (
+                <div key={index} className="w-full flex-none min-w-0">
+                  <div
+                    className={`bg-linear-to-br from-[#002A5C] to-[#1a5fb4] rounded-2xl p-6 min-h-[70vh] flex flex-col select-none ${
+                      isCurrent ? "" : "opacity-70"
+                    }`}
+                  >
+                    {/* Author header */}
+                    <div className="flex items-center gap-3 mb-6">
+                      <Avatar className="h-12 w-12 border-2 border-white/30">
+                        <AvatarFallback className="bg-white/20 text-white font-semibold">
+                          {getInitials(post.author.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="text-white font-semibold">
+                          {post.author.name}
+                        </p>
+                        <p className="text-white/60 text-sm">
+                          {post.author.department} · {post.createdAt}
+                        </p>
+                      </div>
+                    </div>
 
-            {/* Post type badge */}
-            <Badge
-              className={`self-start mb-4 ${
-                currentPost.type === "looking-for"
-                  ? "bg-blue-500/80"
-                  : currentPost.type === "offering"
-                  ? "bg-green-500/80"
-                  : "bg-purple-500/80"
-              } text-white border-0`}
-            >
-              {currentPost.type === "looking-for"
-                ? "Looking For"
-                : currentPost.type === "offering"
-                ? "Offering"
-                : "Discussion"}
-            </Badge>
+                    {/* Post type badge */}
+                    <Badge
+                      className={`self-start mb-4 ${
+                        post.type === "looking-for"
+                          ? "bg-blue-500/80"
+                          : post.type === "offering"
+                          ? "bg-green-500/80"
+                          : "bg-purple-500/80"
+                      } text-white border-0`}
+                    >
+                      {post.type === "looking-for"
+                        ? "Looking For"
+                        : post.type === "offering"
+                        ? "Offering"
+                        : "Discussion"}
+                    </Badge>
 
-            {/* Content */}
-            <div className="flex-1 flex items-center">
-              <p className="text-white text-xl leading-relaxed">
-                {currentPost.content}
-              </p>
-            </div>
+                    {/* Content */}
+                    <div className="flex-1 flex items-center screen">
+                      <p className="text-white text-xl leading-relaxed wrap-break-word whitespace-normal">
+                        {post.content}
+                      </p>
+                    </div>
 
-            {/* Tags */}
-            <div className="flex flex-wrap gap-2 mt-4">
-              {currentPost.tags.map((tag) => (
-                <Badge
-                  key={tag}
-                  variant="outline"
-                  className="border-white/30 text-white/80 text-xs"
-                >
-                  #{tag}
-                </Badge>
-              ))}
-            </div>
+                    {/* Tags */}
+                    <div className="flex flex-wrap gap-2 mt-4">
+                      {post.tags.map((tag) => (
+                        <Badge
+                          key={tag}
+                          variant="outline"
+                          className="border-white/30 text-white/80 text-xs"
+                        >
+                          #{tag}
+                        </Badge>
+                      ))}
+                    </div>
 
-            {/* Actions */}
-            <div className="flex items-center justify-around mt-6 pt-4 border-t border-white/10">
-              <button className="flex flex-col items-center gap-1 text-white/80 hover:text-white transition-colors">
-                <Heart className="h-6 w-6" />
-                <span className="text-xs">{currentPost.likes}</span>
-              </button>
-              <button className="flex flex-col items-center gap-1 text-white/80 hover:text-white transition-colors">
-                <MessageCircle className="h-6 w-6" />
-                <span className="text-xs">{currentPost.replies}</span>
-              </button>
-              <button className="flex flex-col items-center gap-1 text-white/80 hover:text-white transition-colors">
-                <Share2 className="h-6 w-6" />
-                <span className="text-xs">Share</span>
-              </button>
-            </div>
+                    {/* Actions */}
+                    <div className="flex items-center justify-around mt-6 pt-4 border-t border-white/10">
+                      <button className="flex flex-col items-center gap-1 text-white/80 hover:text-white transition-colors">
+                        <Heart className="h-6 w-6" />
+                        <span className="text-xs">{post.likes}</span>
+                      </button>
+                      <button className="flex flex-col items-center gap-1 text-white/80 hover:text-white transition-colors">
+                        <MessageCircle className="h-6 w-6" />
+                        <span className="text-xs">{post.replies}</span>
+                      </button>
+                      <button className="flex flex-col items-center gap-1 text-white/80 hover:text-white transition-colors">
+                        <Share2 className="h-6 w-6" />
+                        <span className="text-xs">Share</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Post counter */}
+                  {isCurrent && (
+                    <p className="text-center text-white/50 text-sm mt-4">
+                      {currentIndex + 1} of {posts.length}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
           </div>
-
-          {/* Post counter */}
-          <p className="text-center text-white/50 text-sm mt-4">
-            {currentIndex + 1} of {posts.length}
-          </p>
         </div>
 
         {/* Right arrow */}
         <button
           onClick={goNext}
-          className={`absolute right-4 p-3 rounded-full bg-white/10 hover:bg-white/20 transition-all ${
-            currentIndex === posts.length - 1
-              ? "opacity-30 cursor-not-allowed"
-              : ""
-          }`}
-          disabled={currentIndex === posts.length - 1}
+          className="absolute right-4 p-3 rounded-full bg-white/10 hover:bg-white/20 transition-all"
         >
           <ChevronRight className="h-6 w-6 text-white" />
         </button>
@@ -254,68 +329,19 @@ function SwipeView({
 }
 
 export default function FeedPage() {
-  const { isAuthenticated } = useAuth();
   const [newPost, setNewPost] = useState("");
-  const [selectedVisibility, setSelectedVisibility] = useState<"everyone" | "students" | "faculty" | "alumni">("everyone");
-  const [selectedType, setSelectedType] = useState<"looking-for" | "offering" | "discussion">("looking-for");
+  const [selectedVisibility, setSelectedVisibility] = useState("everyone");
+  const [selectedType, setSelectedType] = useState("looking-for");
   const [showComposer, setShowComposer] = useState(false);
-  const [viewMode, setViewMode] = useState<"feed" | "swipe">("feed");
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isPosting, setIsPosting] = useState(false);
-  const [error, setError] = useState("");
-  const isSwipeView = viewMode === "swipe";
+  const [viewMode, setViewMode] = useState("feed");
 
-  const loadPosts = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      const data = await fetchPosts();
-      setPosts(data);
-    } catch (err) {
-      console.error("Failed to load posts:", err);
-      // Fall back to mock data if API fails
-      setPosts([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadPosts();
-  }, [loadPosts]);
-
-  const handleCreatePost = async () => {
-    if (!newPost.trim() || !isAuthenticated) return;
-    
-    setIsPosting(true);
-    setError("");
-    try {
-      const created = await createPost({
-        content: newPost,
-        tags: [],
-        type: selectedType,
-        visibility: selectedVisibility,
-      });
-      setPosts([created, ...posts]);
-      setNewPost("");
-      setShowComposer(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create post");
-    } finally {
-      setIsPosting(false);
-    }
-  };
-
-  // Combine API posts with mock posts for display
-  const displayPosts = posts.length > 0 ? posts : mockPosts;
+  if (viewMode === "swipe") {
+    return <SwipeView posts={mockPosts} onClose={() => setViewMode("feed")} />;
+  }
 
   return (
-    <>
-      {isSwipeView && (
-        <SwipeView posts={mockPosts} onClose={() => setViewMode("feed")} />
-      )}
-      <div className="min-h-screen bg-gray-50">
-        <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+    <div className="min-h-screen bg-gray-50">
+      <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
         {/* Page Header */}
         <div className="mb-8 flex items-start justify-between">
           <div>
@@ -327,10 +353,10 @@ export default function FeedPage() {
           {/* View Mode Toggle */}
           <div className="flex items-center gap-1 bg-white rounded-lg shadow-sm p-1">
             <Button
-              variant={!isSwipeView ? "default" : "ghost"}
+              variant={viewMode === "feed" ? "default" : "ghost"}
               size="sm"
               className={`h-8 px-3 ${
-                !isSwipeView
+                viewMode === "feed"
                   ? "bg-[#002A5C] text-white"
                   : "text-gray-500"
               }`}
@@ -340,10 +366,10 @@ export default function FeedPage() {
               Feed
             </Button>
             <Button
-              variant={isSwipeView ? "default" : "ghost"}
+              variant={viewMode === "swipe" ? "default" : "ghost"}
               size="sm"
               className={`h-8 px-3 ${
-                isSwipeView
+                viewMode === "swipe"
                   ? "bg-[#002A5C] text-white"
                   : "text-gray-500"
               }`}
@@ -377,7 +403,7 @@ export default function FeedPage() {
                 placeholder="Share what you're looking for, offering, or want to discuss..."
                 value={newPost}
                 onChange={(e) => setNewPost(e.target.value)}
-                className="min-h-[100px] resize-none border-0 focus-visible:ring-0 text-sm"
+                className="min-h-25 resize-none border-0 focus-visible:ring-0 text-sm"
                 autoFocus
               />
 
@@ -437,26 +463,20 @@ export default function FeedPage() {
                 </div>
               </div>
 
-              {error && (
-                <p className="text-sm text-red-500">{error}</p>
-              )}
-
               <div className="flex justify-end gap-2 pt-2 border-t">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowComposer(false)}
-                  disabled={isPosting}
                 >
                   Cancel
                 </Button>
                 <Button
                   size="sm"
                   className="bg-[#002A5C] hover:bg-[#002A5C]/90 text-white"
-                  disabled={!newPost.trim() || isPosting || !isAuthenticated}
-                  onClick={handleCreatePost}
+                  disabled={!newPost.trim()}
                 >
-                  {isPosting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Post"}
+                  Post
                 </Button>
               </div>
             </CardContent>
@@ -487,19 +507,9 @@ export default function FeedPage() {
           </div>
 
           <TabsContent value="latest" className="space-y-4">
-            {isLoading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-[#002A5C]" />
-              </div>
-            ) : posts.length > 0 ? (
-              posts.map((post) => (
-                <PostCard key={post.postId} post={post as never} />
-              ))
-            ) : (
-              mockPosts.map((post) => (
-                <PostCard key={post.id} post={post} />
-              ))
-            )}
+            {mockPosts.map((post) => (
+              <PostCard key={post.id} post={post} />
+            ))}
           </TabsContent>
 
           <TabsContent value="trending" className="space-y-4">
@@ -511,7 +521,7 @@ export default function FeedPage() {
           </TabsContent>
 
           <TabsContent value="for-you" className="space-y-4">
-            <div className="rounded-lg bg-gradient-to-r from-[#002A5C]/5 to-blue-50 p-4 text-center">
+            <div className="rounded-lg bg-linear-to-r from-[#002A5C]/5 to-blue-50 p-4 text-center">
               <Sparkles className="mx-auto h-8 w-8 text-[#002A5C]/40 mb-2" />
               <p className="text-sm font-medium text-[#002A5C]">
                 Personalized feed powered by Amazon Personalize
@@ -525,8 +535,7 @@ export default function FeedPage() {
             ))}
           </TabsContent>
         </Tabs>
-        </div>
       </div>
-    </>
+    </div>
   );
 }
