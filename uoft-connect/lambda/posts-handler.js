@@ -82,6 +82,58 @@ const sanitizePostUpdates = (updates) => {
   return sanitized;
 };
 
+function decodeJwtPayload(token) {
+  try {
+    const [, payload] = token.split(".");
+    const padded = payload.padEnd(payload.length + (4 - (payload.length % 4)) % 4, "=");
+    const json = Buffer.from(padded, "base64").toString("utf8");
+    return JSON.parse(json);
+  } catch (err) {
+    console.error("Failed to decode JWT payload", err);
+    return {};
+  }
+}
+
+function getUserIdentity(event) {
+  const claims =
+    event.requestContext?.authorizer?.claims ||
+    event.requestContext?.authorizer?.jwt?.claims;
+
+  if (claims) {
+    return {
+      userId: claims.sub || claims["cognito:username"] || "anonymous",
+      email: claims.email || "",
+      name: claims.name || claims.email?.split("@")[0] || "",
+    };
+  }
+
+  const authHeader = event.headers?.Authorization || event.headers?.authorization;
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    const token = authHeader.slice(7);
+    const payload = decodeJwtPayload(token);
+    if (payload?.sub || payload?.["cognito:username"]) {
+      return {
+        userId: payload.sub || payload["cognito:username"],
+        email: payload.email || "",
+        name: payload.name || payload.email?.split("@")[0] || "",
+      };
+    }
+  }
+
+  return { userId: "anonymous", email: "", name: "" };
+}
+
+function ensureAuthenticated(userId) {
+  if (!userId || userId === "anonymous") {
+    return {
+      statusCode: 401,
+      headers,
+      body: JSON.stringify({ error: "Authentication required" }),
+    };
+  }
+  return null;
+}
+
 exports.handler = async (event) => {
   console.log("Event:", JSON.stringify(event, null, 2));
 
@@ -94,12 +146,10 @@ exports.handler = async (event) => {
   }
 
   try {
-    // Get user info from Cognito authorizer
-    const claims = event.requestContext?.authorizer?.claims || 
-                   event.requestContext?.authorizer?.jwt?.claims || {};
-    const userId = claims.sub || claims["cognito:username"] || "anonymous";
-    const userEmail = claims.email || "";
-    const userName = claims.name || userEmail.split("@")[0];
+    const identity = getUserIdentity(event);
+    const userId = identity.userId;
+    const userEmail = identity.email;
+    const userName = identity.name;
 
     // Route handling
     if (path === "/posts" && method === "GET") {
@@ -107,6 +157,8 @@ exports.handler = async (event) => {
     }
 
     if (path === "/posts" && method === "POST") {
+      const authError = ensureAuthenticated(userId);
+      if (authError) return authError;
       const body = JSON.parse(event.body || "{}");
       const effectiveUserId = userId === "anonymous" ? (body.clientUserId || userId) : userId;
       const effectiveEmail = userEmail || body.authorEmail || "";
@@ -120,6 +172,8 @@ exports.handler = async (event) => {
     }
 
     if (path.startsWith("/posts/") && method === "DELETE") {
+      const authError = ensureAuthenticated(userId);
+      if (authError) return authError;
       const postId = path.split("/")[2];
       const body = JSON.parse(event.body || "{}");
       const effectiveUserId = userId === "anonymous" ? (body.clientUserId || userId) : userId;
@@ -127,6 +181,8 @@ exports.handler = async (event) => {
     }
 
     if (path.startsWith("/posts/") && method === "PUT") {
+      const authError = ensureAuthenticated(userId);
+      if (authError) return authError;
       const postId = path.split("/")[2];
       const body = JSON.parse(event.body || "{}");
       const effectiveUserId = userId === "anonymous" ? (body.clientUserId || userId) : userId;
@@ -155,32 +211,44 @@ exports.handler = async (event) => {
     }
 
     if (path.match(/^\/posts\/[^/]+\/like$/) && method === "POST") {
+      const authError = ensureAuthenticated(userId);
+      if (authError) return authError;
       const postId = path.split("/")[2];
       const effectiveUserId = userId === "anonymous" ? (JSON.parse(event.body || "{}").clientUserId || userId) : userId;
       return await likePost(postId, effectiveUserId);
     }
 
     if (path.match(/^\/posts\/[^/]+\/unlike$/) && method === "POST") {
+      const authError = ensureAuthenticated(userId);
+      if (authError) return authError;
       const postId = path.split("/")[2];
       const effectiveUserId = userId === "anonymous" ? (JSON.parse(event.body || "{}").clientUserId || userId) : userId;
       return await unlikePost(postId, effectiveUserId);
     }
 
     if (path === "/conversations" && method === "GET") {
+      const authError = ensureAuthenticated(userId);
+      if (authError) return authError;
       return await listConversations(userId);
     }
 
     if (path.match(/^\/conversations\/[^/]+$/) && method === "GET") {
+      const authError = ensureAuthenticated(userId);
+      if (authError) return authError;
       const conversationId = path.split("/")[2];
       return await getConversation(conversationId, userId);
     }
 
     if (path === "/messages" && method === "POST") {
+      const authError = ensureAuthenticated(userId);
+      if (authError) return authError;
       const body = JSON.parse(event.body || "{}");
       return await sendMessage(body, userId, userEmail, userName);
     }
 
     if (path.match(/^\/conversations\/[^/]+\/read$/) && method === "POST") {
+      const authError = ensureAuthenticated(userId);
+      if (authError) return authError;
       const conversationId = path.split("/")[2];
       return await markAsRead(conversationId, userId);
     }
