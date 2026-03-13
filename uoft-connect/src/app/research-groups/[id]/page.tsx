@@ -13,6 +13,12 @@ import {
   User,
 } from "lucide-react";
 
+export function generateStaticParams() {
+  return mockResearchGroups.map((group) => ({
+    id: group.id,
+  }));
+}
+
 export default async function ResearchGroupPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const group = mockResearchGroups.find((group) => group.id === id);
